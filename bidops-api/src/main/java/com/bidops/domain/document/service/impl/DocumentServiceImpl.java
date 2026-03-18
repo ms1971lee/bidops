@@ -1,0 +1,97 @@
+package com.bidops.domain.document.service.impl;
+
+import com.bidops.common.exception.BidOpsException;
+import com.bidops.common.response.ListData;
+import com.bidops.domain.document.dto.DocumentDto;
+import com.bidops.domain.document.dto.DocumentUploadRequest;
+import com.bidops.domain.document.entity.Document;
+import com.bidops.domain.document.enums.DocumentParseStatus;
+import com.bidops.domain.document.enums.DocumentType;
+import com.bidops.domain.document.repository.DocumentRepository;
+import com.bidops.domain.document.service.DocumentService;
+import com.bidops.domain.project.repository.ProjectRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class DocumentServiceImpl implements DocumentService {
+
+    private final DocumentRepository documentRepository;
+    private final ProjectRepository  projectRepository;
+
+    // TODO: StorageService 연동 시 주입
+    // private final StorageService storageService;
+
+    @Override
+    public ListData<DocumentDto> listDocuments(String projectId, DocumentType type, DocumentParseStatus parseStatus) {
+        validateProject(projectId);
+        List<DocumentDto> items = documentRepository
+                .findByProjectId(projectId, type, parseStatus)
+                .stream().map(DocumentDto::from).toList();
+        return new ListData<>(items, items.size());
+    }
+
+    @Override
+    @Transactional
+    public DocumentDto uploadDocument(String projectId, DocumentUploadRequest request) {
+        validateProject(projectId);
+
+        // TODO: 실제 파일 업로드 → storagePath 반환
+        String storagePath = "projects/" + projectId + "/documents/" + request.getFile().getOriginalFilename();
+
+        // 같은 타입+파일명의 최신 버전 번호 계산
+        int nextVersion = documentRepository
+                .findVersions(projectId, request.getFile().getOriginalFilename())
+                .stream().mapToInt(Document::getVersion).max().orElse(0) + 1;
+
+        Document document = Document.builder()
+                .projectId(projectId)
+                .type(request.getType())
+                .fileName(request.getFile().getOriginalFilename())
+                .storagePath(storagePath)
+                .version(nextVersion)
+                .versionNote(request.getVersionNote())
+                .parseStatus(DocumentParseStatus.UPLOADED)
+                .build();
+
+        return DocumentDto.from(documentRepository.save(document));
+    }
+
+    @Override
+    public DocumentDto getDocument(String projectId, String documentId) {
+        return DocumentDto.from(findOrThrow(projectId, documentId));
+    }
+
+    @Override
+    @Transactional
+    public void deleteDocument(String projectId, String documentId) {
+        Document doc = findOrThrow(projectId, documentId);
+        doc.delete();
+    }
+
+    @Override
+    public List<DocumentDto> listVersions(String projectId, String documentId) {
+        Document doc = findOrThrow(projectId, documentId);
+        return documentRepository
+                .findVersions(projectId, doc.getFileName())
+                .stream().map(DocumentDto::from).toList();
+    }
+
+    // ── internal ─────────────────────────────────────────────────────────────
+    private Document findOrThrow(String projectId, String documentId) {
+        return documentRepository.findByIdAndProjectIdAndDeletedFalse(documentId, projectId)
+                .orElseThrow(() -> BidOpsException.notFound("문서"));
+    }
+
+    private void validateProject(String projectId) {
+        projectRepository.findByIdAndDeletedFalse(projectId)
+                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+    }
+}

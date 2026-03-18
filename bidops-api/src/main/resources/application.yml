@@ -1,0 +1,48 @@
+spring:
+  profiles:
+    active: local
+
+  application:
+    name: bidops-api
+
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+bidops:
+  storage:
+    bucket: ${STORAGE_BUCKET:bidops-dev}
+    base-url: ${STORAGE_BASE_URL:http://localhost:9000}
+  security:
+    jwt-secret: ${JWT_SECRET:change-me-in-production}
+    jwt-expiry-ms: ${JWT_EXPIRY_MS:86400000}
+
+logging:
+  level:
+    com.bidops: DEBUG
+    org.hibernate.SQL: WARN

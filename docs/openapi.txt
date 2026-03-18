@@ -1,0 +1,1380 @@
+openapi: 3.1.0
+info:
+  title: BidOps API
+  version: 0.1.0
+  summary: BidOps MVP OpenAPI 1차 초안
+  description: >
+    공공/민간 입찰·제안 업무를 위한 근거 기반 RFP 분석 및 수주 운영 시스템 API.
+    문서 업로드 → 비동기 분석 → 요구사항 검토 → 체크리스트/질의/산출물 관리 흐름을 기준으로 정의한다.
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Projects
+  - name: Documents
+  - name: AnalysisJobs
+  - name: Requirements
+  - name: RequirementAnalysis
+  - name: Checklists
+  - name: Queries
+  - name: Artifacts
+  - name: Dashboard
+  - name: AuditLogs
+
+security:
+  - bearerAuth: []
+
+paths:
+  /projects:
+    get:
+      tags: [Projects]
+      summary: 프로젝트 목록 조회
+      operationId: listProjects
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - in: query
+          name: keyword
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/ProjectStatus' }
+      responses:
+        '200':
+          description: 프로젝트 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectListResponse' }
+    post:
+      tags: [Projects]
+      summary: 프로젝트 생성
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectCreateRequest' }
+      responses:
+        '201':
+          description: 프로젝트 생성 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+
+  /projects/{projectId}:
+    get:
+      tags: [Projects]
+      summary: 프로젝트 상세 조회
+      operationId: getProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 프로젝트 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+    patch:
+      tags: [Projects]
+      summary: 프로젝트 수정
+      operationId: updateProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectUpdateRequest' }
+      responses:
+        '200':
+          description: 프로젝트 수정 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+
+  /projects/{projectId}/status:
+    post:
+      tags: [Projects]
+      summary: 프로젝트 상태 변경
+      operationId: changeProjectStatus
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectStatusChangeRequest' }
+      responses:
+        '200':
+          description: 상태 변경 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+
+  /projects/{projectId}/documents:
+    get:
+      tags: [Documents]
+      summary: 문서 목록 조회
+      operationId: listDocuments
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - in: query
+          name: type
+          schema: { $ref: '#/components/schemas/DocumentType' }
+        - in: query
+          name: parse_status
+          schema: { $ref: '#/components/schemas/DocumentParseStatus' }
+      responses:
+        '200':
+          description: 문서 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentListResponse' }
+    post:
+      tags: [Documents]
+      summary: 문서 업로드
+      operationId: uploadDocument
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, type]
+              properties:
+                file: { type: string, format: binary }
+                type: { $ref: '#/components/schemas/DocumentType' }
+                version_note: { type: string }
+      responses:
+        '201':
+          description: 문서 업로드 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentResponse' }
+
+  /projects/{projectId}/documents/{documentId}:
+    get:
+      tags: [Documents]
+      summary: 문서 상세 조회
+      operationId: getDocument
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 문서 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentResponse' }
+    delete:
+      tags: [Documents]
+      summary: 문서 삭제
+      operationId: deleteDocument
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 문서 삭제 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /projects/{projectId}/documents/{documentId}/versions:
+    get:
+      tags: [Documents]
+      summary: 문서 버전 목록 조회
+      operationId: listDocumentVersions
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 문서 버전 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentVersionListResponse' }
+
+  /projects/{projectId}/analysis-jobs:
+    get:
+      tags: [AnalysisJobs]
+      summary: 프로젝트 기준 최신 Job 목록
+      operationId: listAnalysisJobs
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - in: query
+          name: job_type
+          schema: { $ref: '#/components/schemas/AnalysisJobType' }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/AnalysisJobStatus' }
+      responses:
+        '200':
+          description: 분석 Job 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisJobListResponse' }
+    post:
+      tags: [AnalysisJobs]
+      summary: 분석 시작
+      operationId: createAnalysisJob
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnalysisJobCreateRequest' }
+      responses:
+        '201':
+          description: 분석 Job 생성
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisJobResponse' }
+
+  /projects/{projectId}/analysis-jobs/{jobId}:
+    get:
+      tags: [AnalysisJobs]
+      summary: Job 상태 조회
+      operationId: getAnalysisJob
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: 분석 Job 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisJobResponse' }
+
+  /projects/{projectId}/requirements:
+    get:
+      tags: [Requirements]
+      summary: 요구사항 목록 조회
+      operationId: listRequirements
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - in: query
+          name: category
+          schema: { $ref: '#/components/schemas/RequirementCategory' }
+        - in: query
+          name: mandatory
+          schema: { type: boolean }
+        - in: query
+          name: evidence_required
+          schema: { type: boolean }
+        - in: query
+          name: analysis_status
+          schema: { $ref: '#/components/schemas/RequirementAnalysisStatus' }
+        - in: query
+          name: review_status
+          schema: { $ref: '#/components/schemas/RequirementReviewStatus' }
+        - in: query
+          name: fact_level
+          schema: { $ref: '#/components/schemas/FactLevel' }
+        - in: query
+          name: query_needed
+          schema: { type: boolean }
+        - in: query
+          name: keyword
+          schema: { type: string }
+      responses:
+        '200':
+          description: 요구사항 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementListResponse' }
+
+  /projects/{projectId}/requirements/{requirementId}:
+    get:
+      tags: [Requirements]
+      summary: 요구사항 상세 조회
+      operationId: getRequirement
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      responses:
+        '200':
+          description: 요구사항 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDetailResponse' }
+    patch:
+      tags: [Requirements]
+      summary: 요구사항 기본 정보 수정
+      operationId: updateRequirement
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequirementUpdateRequest' }
+      responses:
+        '200':
+          description: 요구사항 수정 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDetailResponse' }
+
+  /projects/{projectId}/requirements/{requirementId}/sources:
+    get:
+      tags: [Requirements]
+      summary: 요구사항 원문 근거 조회
+      operationId: getRequirementSources
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      responses:
+        '200':
+          description: 원문 근거 조회 성공
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementSourcesResponse' }
+
+  /projects/{projectId}/requirements/{requirementId}/analysis:
+    get:
+      tags: [RequirementAnalysis]
+      summary: 요구사항 분석 조회
+      operationId: getRequirementAnalysis
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      responses:
+        '200':
+          description: 요구사항 분석 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementAnalysisResponse' }
+    patch:
+      tags: [RequirementAnalysis]
+      summary: 요구사항 분석 수정
+      operationId: updateRequirementAnalysis
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequirementAnalysisUpdateRequest' }
+      responses:
+        '200':
+          description: 요구사항 분석 수정 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementAnalysisResponse' }
+
+  /projects/{projectId}/requirements/{requirementId}/review-status:
+    post:
+      tags: [RequirementAnalysis]
+      summary: 요구사항 검토 상태 변경
+      operationId: changeRequirementReviewStatus
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/RequirementId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequirementReviewStatusChangeRequest' }
+      responses:
+        '200':
+          description: 검토 상태 변경 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementAnalysisResponse' }
+
+  /projects/{projectId}/checklists:
+    get:
+      tags: [Checklists]
+      summary: 체크리스트 목록 조회
+      operationId: listChecklistItems
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - in: query
+          name: type
+          schema: { $ref: '#/components/schemas/ChecklistType' }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/ChecklistStatus' }
+        - in: query
+          name: owner_user_id
+          schema: { type: string }
+        - in: query
+          name: mandatory_only
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: 체크리스트 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChecklistItemListResponse' }
+    post:
+      tags: [Checklists]
+      summary: 체크리스트 항목 생성
+      operationId: createChecklistItem
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChecklistItemCreateRequest' }
+      responses:
+        '201':
+          description: 체크리스트 항목 생성 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChecklistItemResponse' }
+
+  /projects/{projectId}/checklists/{checklistItemId}:
+    patch:
+      tags: [Checklists]
+      summary: 체크리스트 항목 수정
+      operationId: updateChecklistItem
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ChecklistItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChecklistItemUpdateRequest' }
+      responses:
+        '200':
+          description: 체크리스트 항목 수정 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChecklistItemResponse' }
+
+  /projects/{projectId}/checklists/generate:
+    post:
+      tags: [Checklists]
+      summary: 체크리스트 자동 생성 실행
+      operationId: generateChecklist
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChecklistGenerateRequest' }
+      responses:
+        '202':
+          description: 체크리스트 자동 생성 Job 생성
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisJobResponse' }
+
+  /projects/{projectId}/queries:
+    get:
+      tags: [Queries]
+      summary: 질의 필요 항목 목록 조회
+      operationId: listQueries
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/QueryStatus' }
+      responses:
+        '200':
+          description: 질의 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryListResponse' }
+    post:
+      tags: [Queries]
+      summary: 질의 항목 저장
+      operationId: createQuery
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueryCreateRequest' }
+      responses:
+        '201':
+          description: 질의 저장 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryResponse' }
+
+  /projects/{projectId}/queries/generate:
+    post:
+      tags: [Queries]
+      summary: 질의 초안 생성
+      operationId: generateQueries
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueryGenerateRequest' }
+      responses:
+        '202':
+          description: 질의 초안 생성 Job 생성
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisJobResponse' }
+
+  /projects/{projectId}/queries/{queryId}:
+    patch:
+      tags: [Queries]
+      summary: 질의 상태 변경
+      operationId: updateQuery
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/QueryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueryUpdateRequest' }
+      responses:
+        '200':
+          description: 질의 상태 변경 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryResponse' }
+
+  /projects/{projectId}/artifacts:
+    get:
+      tags: [Artifacts]
+      summary: 산출물 목록 조회
+      operationId: listArtifacts
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 산출물 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactListResponse' }
+    post:
+      tags: [Artifacts]
+      summary: 산출물 생성
+      operationId: createArtifact
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ArtifactCreateRequest' }
+      responses:
+        '201':
+          description: 산출물 생성 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactResponse' }
+
+  /projects/{projectId}/artifacts/{artifactId}:
+    patch:
+      tags: [Artifacts]
+      summary: 산출물 상태 변경
+      operationId: updateArtifact
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ArtifactUpdateRequest' }
+      responses:
+        '200':
+          description: 산출물 상태 변경 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactResponse' }
+
+  /projects/{projectId}/artifacts/{artifactId}/versions:
+    get:
+      tags: [Artifacts]
+      summary: 산출물 버전 목록 조회
+      operationId: listArtifactVersions
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      responses:
+        '200':
+          description: 산출물 버전 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactVersionListResponse' }
+
+  /projects/{projectId}/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: 프로젝트 분석 요약 조회
+      operationId: getProjectDashboard
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 프로젝트 대시보드
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardResponse' }
+
+  /projects/{projectId}/audit-logs:
+    get:
+      tags: [AuditLogs]
+      summary: 감사로그 목록 조회
+      operationId: listAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - in: query
+          name: actor_user_id
+          schema: { type: string }
+        - in: query
+          name: action_type
+          schema: { type: string }
+        - in: query
+          name: target_type
+          schema: { type: string }
+        - in: query
+          name: date_from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: date_to
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: 감사로그 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditLogListResponse' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ProjectId:
+      in: path
+      name: projectId
+      required: true
+      schema: { type: string }
+    DocumentId:
+      in: path
+      name: documentId
+      required: true
+      schema: { type: string }
+    JobId:
+      in: path
+      name: jobId
+      required: true
+      schema: { type: string }
+    RequirementId:
+      in: path
+      name: requirementId
+      required: true
+      schema: { type: string }
+    ChecklistItemId:
+      in: path
+      name: checklistItemId
+      required: true
+      schema: { type: string }
+    QueryId:
+      in: path
+      name: queryId
+      required: true
+      schema: { type: string }
+    ArtifactId:
+      in: path
+      name: artifactId
+      required: true
+      schema: { type: string }
+    Page:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 1, default: 1 }
+    Size:
+      in: query
+      name: size
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  schemas:
+    Meta:
+      type: object
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        total_count: { type: integer }
+      additionalProperties: true
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+    SuccessResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { type: object, additionalProperties: true }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ProjectStatus:
+      type: string
+      enum: [DRAFT, READY, ANALYZING, REVIEWING, SUBMISSION_PREP, CLOSED]
+    DocumentParseStatus:
+      type: string
+      enum: [UPLOADED, PARSING, PARSED, FAILED]
+    AnalysisJobStatus:
+      type: string
+      enum: [PENDING, RUNNING, COMPLETED, FAILED]
+    RequirementCategory:
+      type: string
+      enum: [FUNCTIONAL, NON_FUNCTIONAL, SCHEDULE, STAFFING, EXPERIENCE, SECURITY, EVALUATION, DELIVERABLE, ETC]
+    FactLevel:
+      type: string
+      enum: [FACT, INFERENCE, REVIEW_NEEDED]
+    RequirementAnalysisStatus:
+      type: string
+      enum: [EXTRACTED, ENRICHED, REVIEW_NEEDED]
+    RequirementReviewStatus:
+      type: string
+      enum: [NOT_REVIEWED, IN_REVIEW, APPROVED, HOLD, NEEDS_UPDATE]
+    ChecklistStatus:
+      type: string
+      enum: [TODO, IN_PROGRESS, DONE, BLOCKED]
+    RiskLevel:
+      type: string
+      enum: [NONE, LOW, MEDIUM, HIGH]
+    QueryStatus:
+      type: string
+      enum: [DRAFT, REVIEWING, SENT, ANSWERED, CLOSED]
+    DocumentType:
+      type: string
+      enum: [RFP, ANNEX, FORM, QNA, PROPOSAL_REFERENCE]
+    AnalysisJobType:
+      type: string
+      enum: [OCR, PARSE, REQUIREMENT_EXTRACTION, CHECKLIST_BUILD, QUERY_BUILD, ARTIFACT_BUILD, SEARCH_INDEX, RFP_PARSE]
+    ChecklistType:
+      type: string
+      enum: [SUBMISSION, EVALUATION, EVIDENCE]
+    ArtifactType:
+      type: string
+      enum: [PROPOSAL_OUTLINE, REQUIREMENT_SUMMARY, PRESENTATION_SUMMARY, CUSTOM]
+    ArtifactStatus:
+      type: string
+      enum: [DRAFT, REVIEWING, APPROVED, ARCHIVED]
+
+    Project:
+      type: object
+      required: [id, name, client_name, business_name, status, created_by, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        client_name: { type: string }
+        business_name: { type: string }
+        status: { $ref: '#/components/schemas/ProjectStatus' }
+        description: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Document:
+      type: object
+      required: [id, project_id, type, file_name, storage_path, version, parse_status, uploaded_by, uploaded_at]
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        type: { $ref: '#/components/schemas/DocumentType' }
+        file_name: { type: string }
+        storage_path: { type: string }
+        version: { type: integer }
+        version_note: { type: string }
+        parse_status: { $ref: '#/components/schemas/DocumentParseStatus' }
+        uploaded_by: { type: string }
+        uploaded_at: { type: string, format: date-time }
+
+    AnalysisJob:
+      type: object
+      required: [id, project_id, document_id, job_type, status]
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        document_id: { type: string }
+        job_type: { $ref: '#/components/schemas/AnalysisJobType' }
+        status: { $ref: '#/components/schemas/AnalysisJobStatus' }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        error_code: { type: string }
+        error_message: { type: string }
+
+    Requirement:
+      type: object
+      required: [id, project_id, document_id, requirement_code, original_text, category, mandatory_flag, evidence_required_flag, analysis_status]
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        document_id: { type: string }
+        source_excerpt_id: { type: string }
+        requirement_code: { type: string }
+        title: { type: string }
+        original_text: { type: string }
+        category: { $ref: '#/components/schemas/RequirementCategory' }
+        mandatory_flag: { type: boolean }
+        evidence_required_flag: { type: boolean }
+        confidence_score: { type: number, format: float }
+        analysis_status: { $ref: '#/components/schemas/RequirementAnalysisStatus' }
+        review_status: { $ref: '#/components/schemas/RequirementReviewStatus' }
+        fact_level: { $ref: '#/components/schemas/FactLevel' }
+        query_needed: { type: boolean }
+        page_refs:
+          type: array
+          items: { type: integer }
+        clause_refs:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RequirementInsight:
+      type: object
+      required: [requirement_id, fact_level, review_status]
+      properties:
+        requirement_id: { type: string }
+        fact_summary: { type: string }
+        interpretation_summary: { type: string }
+        intent_summary: { type: string }
+        proposal_point: { type: string }
+        implementation_approach: { type: string }
+        expected_deliverables:
+          type: array
+          items: { type: string }
+        differentiation_point: { type: string }
+        risk_note:
+          type: array
+          items: { type: string }
+        query_needed: { type: boolean }
+        fact_level: { $ref: '#/components/schemas/FactLevel' }
+        review_status: { $ref: '#/components/schemas/RequirementReviewStatus' }
+        reviewed_by_user_id: { type: string }
+        reviewed_at: { type: string, format: date-time }
+        generated_by_job_id: { type: string }
+
+    RequirementDetail:
+      type: object
+      required: [requirement, analysis]
+      properties:
+        requirement: { $ref: '#/components/schemas/Requirement' }
+        analysis: { $ref: '#/components/schemas/RequirementInsight' }
+
+    SourceExcerpt:
+      type: object
+      required: [id, page_no, excerpt_type, raw_text]
+      properties:
+        id: { type: string }
+        page_no: { type: integer }
+        excerpt_type:
+          type: string
+          enum: [PARAGRAPH, TABLE, LIST, HEADER, FOOTNOTE]
+        anchor_label: { type: string }
+        raw_text: { type: string }
+        normalized_text: { type: string }
+        bbox_json:
+          type: object
+          additionalProperties: true
+
+    RequirementSources:
+      type: object
+      required: [page_refs, clause_refs, source_text_blocks]
+      properties:
+        page_refs:
+          type: array
+          items: { type: integer }
+        clause_refs:
+          type: array
+          items: { type: string }
+        source_text_blocks:
+          type: array
+          items: { $ref: '#/components/schemas/SourceExcerpt' }
+
+    ChecklistItem:
+      type: object
+      required: [id, item_code, item_text, mandatory_flag, current_status, risk_level]
+      properties:
+        id: { type: string }
+        checklist_type: { $ref: '#/components/schemas/ChecklistType' }
+        linked_requirement_id: { type: string }
+        source_excerpt_id: { type: string }
+        owner_user_id: { type: string }
+        item_code: { type: string }
+        item_text: { type: string }
+        description: { type: string }
+        mandatory_flag: { type: boolean }
+        current_status: { $ref: '#/components/schemas/ChecklistStatus' }
+        risk_level: { $ref: '#/components/schemas/RiskLevel' }
+        risk_note: { type: string }
+        due_date: { type: string, format: date }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    QueryItem:
+      type: object
+      required: [id, status, content]
+      properties:
+        id: { type: string }
+        requirement_id: { type: string }
+        source_excerpt_id: { type: string }
+        title: { type: string }
+        content: { type: string }
+        status: { $ref: '#/components/schemas/QueryStatus' }
+        answer: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Artifact:
+      type: object
+      required: [id, type, title, status, created_at]
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        type: { $ref: '#/components/schemas/ArtifactType' }
+        title: { type: string }
+        content:
+          type: object
+          additionalProperties: true
+        status: { $ref: '#/components/schemas/ArtifactStatus' }
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Dashboard:
+      type: object
+      required:
+        [total_requirements, mandatory_requirements, evidence_required_count, review_pending_count, risk_count, query_needed_count, checklist_pending_count]
+      properties:
+        total_requirements: { type: integer }
+        mandatory_requirements: { type: integer }
+        evidence_required_count: { type: integer }
+        review_pending_count: { type: integer }
+        risk_count: { type: integer }
+        query_needed_count: { type: integer }
+        checklist_pending_count: { type: integer }
+
+    AuditLog:
+      type: object
+      required: [id, project_id, actor_user_id, action_type, target_type, target_id, created_at]
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        actor_user_id: { type: string }
+        action_type: { type: string }
+        target_type: { type: string }
+        target_id: { type: string }
+        detail_json:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+
+    ProjectCreateRequest:
+      type: object
+      required: [name, client_name, business_name]
+      properties:
+        name: { type: string }
+        client_name: { type: string }
+        business_name: { type: string }
+        description: { type: string }
+
+    ProjectUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        client_name: { type: string }
+        business_name: { type: string }
+        description: { type: string }
+
+    ProjectStatusChangeRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/ProjectStatus' }
+
+    AnalysisJobCreateRequest:
+      type: object
+      required: [document_id, job_type]
+      properties:
+        document_id: { type: string }
+        job_type: { $ref: '#/components/schemas/AnalysisJobType' }
+
+    RequirementUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        category: { $ref: '#/components/schemas/RequirementCategory' }
+        mandatory_flag: { type: boolean }
+        evidence_required_flag: { type: boolean }
+        analysis_status: { $ref: '#/components/schemas/RequirementAnalysisStatus' }
+
+    RequirementAnalysisUpdateRequest:
+      type: object
+      properties:
+        fact_summary: { type: string }
+        interpretation_summary: { type: string }
+        intent_summary: { type: string }
+        proposal_point: { type: string }
+        implementation_approach: { type: string }
+        expected_deliverables:
+          type: array
+          items: { type: string }
+        differentiation_point: { type: string }
+        risk_note:
+          type: array
+          items: { type: string }
+        query_needed: { type: boolean }
+        fact_level: { $ref: '#/components/schemas/FactLevel' }
+
+    RequirementReviewStatusChangeRequest:
+      type: object
+      required: [review_status]
+      properties:
+        review_status: { $ref: '#/components/schemas/RequirementReviewStatus' }
+        review_comment: { type: string }
+
+    ChecklistItemCreateRequest:
+      type: object
+      required: [checklist_type, item_text, mandatory_flag]
+      properties:
+        checklist_type: { $ref: '#/components/schemas/ChecklistType' }
+        linked_requirement_id: { type: string }
+        source_excerpt_id: { type: string }
+        owner_user_id: { type: string }
+        item_code: { type: string }
+        item_text: { type: string }
+        description: { type: string }
+        mandatory_flag: { type: boolean }
+        due_date: { type: string, format: date }
+
+    ChecklistItemUpdateRequest:
+      type: object
+      properties:
+        owner_user_id: { type: string }
+        description: { type: string }
+        current_status: { $ref: '#/components/schemas/ChecklistStatus' }
+        risk_level: { $ref: '#/components/schemas/RiskLevel' }
+        risk_note: { type: string }
+        due_date: { type: string, format: date }
+
+    ChecklistGenerateRequest:
+      type: object
+      properties:
+        checklist_type: { $ref: '#/components/schemas/ChecklistType' }
+        include_requirement_ids:
+          type: array
+          items: { type: string }
+
+    QueryCreateRequest:
+      type: object
+      required: [content]
+      properties:
+        requirement_id: { type: string }
+        source_excerpt_id: { type: string }
+        title: { type: string }
+        content: { type: string }
+        status: { $ref: '#/components/schemas/QueryStatus' }
+
+    QueryGenerateRequest:
+      type: object
+      properties:
+        include_requirement_ids:
+          type: array
+          items: { type: string }
+
+    QueryUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        answer: { type: string }
+        status: { $ref: '#/components/schemas/QueryStatus' }
+
+    ArtifactCreateRequest:
+      type: object
+      required: [type, title]
+      properties:
+        type: { $ref: '#/components/schemas/ArtifactType' }
+        title: { type: string }
+        content:
+          type: object
+          additionalProperties: true
+
+    ArtifactUpdateRequest:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/ArtifactStatus' }
+        content:
+          type: object
+          additionalProperties: true
+
+    ProjectResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Project' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ProjectListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Project' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    DocumentResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Document' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    DocumentListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Document' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    DocumentVersionListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Document' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    AnalysisJobResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/AnalysisJob' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    AnalysisJobListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AnalysisJob' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    RequirementListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Requirement' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    RequirementDetailResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/RequirementDetail' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    RequirementSourcesResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/RequirementSources' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    RequirementAnalysisResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/RequirementInsight' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ChecklistItemResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/ChecklistItem' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ChecklistItemListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ChecklistItem' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    QueryResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/QueryItem' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    QueryListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/QueryItem' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ArtifactResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Artifact' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ArtifactListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Artifact' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    ArtifactVersionListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Artifact' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    DashboardResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Dashboard' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    AuditLogListResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data:
+          type: object
+          required: [items, total_count]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AuditLog' }
+            total_count: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
