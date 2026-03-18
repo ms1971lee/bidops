@@ -1,0 +1,18 @@
+{
+  "analysis_job_id": "job-test-001",
+  "document_id": "doc-test-001",
+  "results": [
+    {
+      "requirement_text": "System shall comply with privacy protection laws.",
+      "clause_id": "Chapter4-Article12",
+      "page_no": 23,
+      "section_path": "Chapter4 > Security Requirements",
+      "requirement_type": "SECURITY",
+      "original_evidence": "Privacy law compliance required.",
+      "fact_basis": "Page 23 Article 12",
+      "inference_note": "Encryption and TLS required.",
+      "review_required_note": null,
+      "status": "\ud655\uc778\uc644\ub8cc"
+    }
+  ]
+}
