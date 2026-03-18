@@ -38,13 +38,21 @@ public class DocumentServiceImpl implements DocumentService {
         return new ListData<>(items, items.size());
     }
 
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
+
     @Override
     @Transactional
     public DocumentDto uploadDocument(String projectId, DocumentUploadRequest request) {
         validateProject(projectId);
 
+        // MVP: PDF only — HWP/HWPX는 사용자가 PDF 변환 후 업로드
+        String filename = request.getFile().getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".pdf")) {
+            throw BidOpsException.badRequest("PDF 파일만 업로드할 수 있습니다. HWP/HWPX는 PDF로 변환 후 업로드해 주세요.");
+        }
+
         // TODO: 실제 파일 업로드 → storagePath 반환
-        String storagePath = "projects/" + projectId + "/documents/" + request.getFile().getOriginalFilename();
+        String storagePath = "projects/" + projectId + "/documents/" + filename;
 
         // 같은 타입+파일명의 최신 버전 번호 계산
         int nextVersion = documentRepository

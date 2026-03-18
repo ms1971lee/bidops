@@ -1,5 +1,6 @@
 package com.bidops;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -7,6 +8,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * JWT Stateless 인증 골격.
@@ -33,14 +38,25 @@ public class SecurityConfig {
             "/actuator/health"
     };
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfile;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        List<String> paths = new ArrayList<>(Arrays.asList(PUBLIC_PATHS));
+
+        // local/dev 프로파일에서만 전체 API 인증 없이 허용
+        if ("local".equals(activeProfile) || "dev".equals(activeProfile)) {
+            paths.add("/api/**");
+        }
+
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s ->
                     s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(PUBLIC_PATHS).permitAll()
+                    .requestMatchers(paths.toArray(String[]::new)).permitAll()
                     .anyRequest().authenticated()
             );
 

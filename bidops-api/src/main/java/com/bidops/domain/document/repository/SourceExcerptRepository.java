@@ -6,8 +6,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SourceExcerptRepository extends JpaRepository<SourceExcerpt, String> {
+
+    /**
+     * documentId + pageNo + anchorLabel 조합으로 기존 발췌 블록 조회.
+     * RFP 분석 결과 저장 시 중복 SourceExcerpt 생성 방지에 사용.
+     */
+    Optional<SourceExcerpt> findByDocumentIdAndPageNoAndAnchorLabel(
+            String documentId, Integer pageNo, String anchorLabel);
 
     List<SourceExcerpt> findByDocumentIdOrderByPageNoAsc(String documentId);
 

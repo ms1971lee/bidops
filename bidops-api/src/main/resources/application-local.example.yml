@@ -1,3 +1,9 @@
+# 로컬 개발 환경 설정 예시
+# 사용법: 환경변수로 설정하거나 IntelliJ Run Configuration에 추가
+#   DB_NAME=bidops
+#   DB_USERNAME=bidops
+#   DB_PASSWORD=your_password
+
 spring:
   datasource:
     url: jdbc:mariadb://localhost:3306/${DB_NAME:bidops}?useSSL=false&serverTimezone=Asia/Seoul

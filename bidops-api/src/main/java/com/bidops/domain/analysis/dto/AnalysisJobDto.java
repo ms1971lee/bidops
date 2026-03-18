@@ -40,6 +40,9 @@ public class AnalysisJobDto {
     @JsonProperty("error_message")
     private String errorMessage;
 
+    @JsonProperty("result_count")
+    private Integer resultCount;
+
     public static AnalysisJobDto from(AnalysisJob j) {
         return AnalysisJobDto.builder()
                 .id(j.getId())
@@ -52,6 +55,7 @@ public class AnalysisJobDto {
                 .finishedAt(j.getFinishedAt())
                 .errorCode(j.getErrorCode())
                 .errorMessage(j.getErrorMessage())
+                .resultCount(j.getResultCount())
                 .build();
     }
 }

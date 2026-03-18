@@ -44,4 +44,6 @@ public interface RequirementRepository extends JpaRepository<Requirement, String
             Pageable pageable);
 
     Optional<Requirement> findByIdAndProjectId(String id, String projectId);
+
+    boolean existsByDocumentIdAndOriginalText(String documentId, String originalText);
 }

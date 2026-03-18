@@ -53,6 +53,11 @@ public class AnalysisJob {
     @Column(name = "error_message", length = 500)
     private String errorMessage;
 
+    /** 저장된 요구사항 수 */
+    @Column(name = "result_count")
+    @Builder.Default
+    private Integer resultCount = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -63,10 +68,11 @@ public class AnalysisJob {
         this.startedAt = LocalDateTime.now();
     }
 
-    public void complete() {
-        this.status     = AnalysisJobStatus.COMPLETED;
-        this.progress   = 100;
-        this.finishedAt = LocalDateTime.now();
+    public void complete(int resultCount) {
+        this.status      = AnalysisJobStatus.COMPLETED;
+        this.progress    = 100;
+        this.resultCount = resultCount;
+        this.finishedAt  = LocalDateTime.now();
     }
 
     public void fail(String errorCode, String errorMessage) {

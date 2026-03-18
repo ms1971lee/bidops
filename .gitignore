@@ -1,5 +1,18 @@
+# IDE
 .idea/
+
+# Build
 **/build/
 .gradle/
 out/
+
+# Logs
 *.log
+
+# Node
+node_modules/
+.next/
+
+# Local-only config (contains machine-specific paths or credentials)
+bidops-api/gradle.properties
+.claude/
