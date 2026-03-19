@@ -35,6 +35,9 @@ public class S3StorageService implements StorageService {
     @Value("${bidops.storage.secret-key:minioadmin}")
     private String secretKey;
 
+    @Value("${bidops.storage.presigned-expiry-minutes:60}")
+    private int presignedExpiryMinutes;
+
     private MinioClient minioClient;
 
     @PostConstruct
@@ -97,18 +100,30 @@ public class S3StorageService implements StorageService {
 
     @Override
     public String toViewerUrl(String storagePath) {
-        // presigned URL 생성 (1시간 유효)
         try {
             String url = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET)
                     .bucket(bucket)
                     .object(storagePath)
-                    .expiry(1, TimeUnit.HOURS)
+                    .expiry(presignedExpiryMinutes, TimeUnit.MINUTES)
                     .build());
             return url;
         } catch (Exception e) {
             log.warn("[S3] presigned URL 생성 실패, proxy fallback: {}", e.getMessage());
             return "/api/v1/files/" + storagePath;
+        }
+    }
+
+    @Override
+    public void delete(String storagePath) {
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(storagePath)
+                    .build());
+            log.info("[S3] deleted: {}/{}", bucket, storagePath);
+        } catch (Exception e) {
+            log.warn("[S3] delete failed: {}", e.getMessage());
         }
     }
 }

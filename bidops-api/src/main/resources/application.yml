@@ -42,6 +42,7 @@ bidops:
     base-url: ${STORAGE_BASE_URL:http://localhost:9000}
     access-key: ${STORAGE_ACCESS_KEY:}
     secret-key: ${STORAGE_SECRET_KEY:}
+    presigned-expiry-minutes: ${STORAGE_PRESIGNED_EXPIRY:60}
   security:
     jwt-secret: ${JWT_SECRET:change-me-in-production}
     jwt-expiry-ms: ${JWT_EXPIRY_MS:86400000}

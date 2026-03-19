@@ -80,6 +80,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Transactional
     public void deleteDocument(String projectId, String documentId) {
         Document doc = findOrThrow(projectId, documentId);
+        storageService.delete(doc.getStoragePath());
         doc.delete();
     }
 

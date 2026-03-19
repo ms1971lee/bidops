@@ -77,4 +77,16 @@ public class LocalStorageService implements StorageService {
     public String toViewerUrl(String storagePath) {
         return "/api/v1/files/" + storagePath;
     }
+
+    @Override
+    public void delete(String storagePath) {
+        Path filePath = rootPath.resolve(storagePath).normalize();
+        try {
+            if (Files.deleteIfExists(filePath)) {
+                log.info("[Storage] deleted: {}", storagePath);
+            }
+        } catch (IOException e) {
+            log.warn("[Storage] delete failed: {}", e.getMessage());
+        }
+    }
 }

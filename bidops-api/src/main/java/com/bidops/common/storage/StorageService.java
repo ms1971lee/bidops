@@ -23,4 +23,9 @@ public interface StorageService {
      * storagePath → 프론트에서 접근 가능한 URL 반환.
      */
     String toViewerUrl(String storagePath);
+
+    /**
+     * 저장된 파일 삭제.
+     */
+    void delete(String storagePath);
 }
