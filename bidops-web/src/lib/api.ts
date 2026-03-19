@@ -1,14 +1,43 @@
 const BASE = "/api/v1";
 
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("bidops_token");
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
+  const token = getToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = "Bearer " + token;
+  if (options?.headers) Object.assign(headers, options.headers);
+
+  const res = await fetch(path, { ...options, headers });
+  if (res.status === 401 || res.status === 403) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bidops_token");
+      window.location.href = "/login";
+    }
+    throw new Error("Unauthorized");
+  }
   const json = await res.json();
   if (!json.success) throw new Error(json.error?.message || "API error");
   return json.data;
 }
+
+// ── Auth ─────────────────────────────────────────────────────────
+export const authApi = {
+  login: async (email: string, password: string) => {
+    const res = await fetch(BASE + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error?.message || "Login failed");
+    return json.data as { token: string; userId: string; email: string; name: string };
+  },
+  me: () => request<{ userId: string; email: string; name: string }>(BASE + "/auth/me"),
+};
 
 // ── Projects ────────────────────────────────────────────────────────
 export const projectApi = {

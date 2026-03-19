@@ -1,5 +1,6 @@
 package com.bidops;
 
+import com.bidops.auth.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,26 +8,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * JWT Stateless 인증 골격.
- *
- * ── 범위 ────────────────────────────────────────────────────────────────────
- * 이 클래스는 Security 설정 골격만 유지한다.
- * auth 관련 API(/auth/login, /auth/refresh 등)는 이 파일에 추가하지 않는다.
- *   → auth 상세는 별도 AuthController + JwtAuthFilter 로 분리할 것 (TODO)
- *
- * ── 추가 예정 (TODO) ─────────────────────────────────────────────────────────
- * 1. JwtAuthFilter 구현 후 addFilterBefore() 등록
- * 2. JwtTokenProvider 구현 (서명 검증, 클레임 추출)
- * 3. UserDetailsService 연동 (projectId 기반 접근 제어 포함)
- * ─────────────────────────────────────────────────────────────────────────────
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -35,11 +25,23 @@ public class SecurityConfig {
             "/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/actuator/health"
+            "/actuator/health",
+            "/api/v1/auth/login"
     };
 
     @Value("${spring.profiles.active:}")
     private String activeProfile;
+
+    private final JwtAuthFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -58,10 +60,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(paths.toArray(String[]::new)).permitAll()
                     .anyRequest().authenticated()
-            );
-
-        // TODO: JWT 필터 활성화
-        // http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
