@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProjectRepository extends JpaRepository<Project, String> {
@@ -24,4 +25,17 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
             Pageable pageable);
 
     Optional<Project> findByIdAndDeletedFalse(String id);
+
+    @Query("""
+            SELECT p FROM Project p
+            WHERE p.deleted = false
+              AND p.id IN :ids
+              AND (:keyword IS NULL OR p.name LIKE %:keyword% OR p.clientName LIKE %:keyword%)
+              AND (:status  IS NULL OR p.status = :status)
+            """)
+    Page<Project> searchByIds(
+            @Param("ids")     List<String> ids,
+            @Param("keyword") String keyword,
+            @Param("status")  ProjectStatus status,
+            Pageable pageable);
 }

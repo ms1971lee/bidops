@@ -1,24 +1,21 @@
 package com.bidops.domain.project.service;
 
-import com.bidops.common.response.ApiResponse;
 import com.bidops.common.response.ListData;
 import com.bidops.domain.project.dto.*;
 import com.bidops.domain.project.enums.ProjectStatus;
 
 public interface ProjectService {
 
-    /** GET /projects */
-    ListData<ProjectDto> listProjects(String keyword, ProjectStatus status, int page, int size);
+    ListData<ProjectDto> listProjects(String userId, String keyword, ProjectStatus status, int page, int size);
 
-    /** POST /projects */
-    ProjectDto createProject(ProjectCreateRequest request);
+    ProjectDto createProject(String userId, ProjectCreateRequest request);
 
-    /** GET /projects/{projectId} */
-    ProjectDto getProject(String projectId);
+    ProjectDto getProject(String userId, String projectId);
 
-    /** PATCH /projects/{projectId} */
-    ProjectDto updateProject(String projectId, ProjectUpdateRequest request);
+    ProjectDto updateProject(String userId, String projectId, ProjectUpdateRequest request);
 
-    /** POST /projects/{projectId}/status */
-    ProjectDto changeProjectStatus(String projectId, ProjectStatusChangeRequest request);
+    ProjectDto changeProjectStatus(String userId, String projectId, ProjectStatusChangeRequest request);
+
+    /** 프로젝트 멤버 여부 확인. 다른 도메인 서비스에서 호출. */
+    void validateAccess(String userId, String projectId);
 }
