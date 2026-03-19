@@ -29,6 +29,9 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // S3 호환 스토리지 (MinIO Java SDK)
+    implementation 'io.minio:minio:8.5.17'
+
     // JSON (이미 spring-boot-starter-web에 포함되지만 명시)
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
