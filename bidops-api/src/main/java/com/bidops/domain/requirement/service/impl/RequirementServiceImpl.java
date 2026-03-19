@@ -4,7 +4,7 @@ import com.bidops.common.exception.BidOpsException;
 import com.bidops.common.response.ListData;
 import com.bidops.domain.document.entity.SourceExcerpt;
 import com.bidops.domain.document.repository.SourceExcerptRepository;
-import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectService;
 import com.bidops.domain.requirement.dto.*;
 import com.bidops.domain.requirement.entity.*;
 import com.bidops.domain.requirement.enums.*;
@@ -32,7 +32,7 @@ public class RequirementServiceImpl implements RequirementService {
     private final RequirementReviewRepository  reviewRepository;
     private final RequirementSourceRepository  sourceRepository;
     private final SourceExcerptRepository      excerptRepository;
-    private final ProjectRepository            projectRepository;
+    private final ProjectService               projectService;
     private final ObjectMapper                 objectMapper;
 
     // ── 목록 ─────────────────────────────────────────────────────────────────
@@ -180,8 +180,7 @@ public class RequirementServiceImpl implements RequirementService {
     }
 
     private void validateProject(String projectId) {
-        projectRepository.findByIdAndDeletedFalse(projectId)
-                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
     }
 
     private String currentUserId() {

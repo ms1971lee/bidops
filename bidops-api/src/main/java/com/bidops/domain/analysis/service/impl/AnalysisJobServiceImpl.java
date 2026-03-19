@@ -10,7 +10,7 @@ import com.bidops.domain.analysis.enums.AnalysisJobType;
 import com.bidops.domain.analysis.repository.AnalysisJobRepository;
 import com.bidops.domain.analysis.service.AnalysisJobService;
 import com.bidops.domain.document.repository.DocumentRepository;
-import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ import java.util.List;
 public class AnalysisJobServiceImpl implements AnalysisJobService {
 
     private final AnalysisJobRepository analysisJobRepository;
-    private final ProjectRepository     projectRepository;
+    private final ProjectService        projectService;
     private final DocumentRepository    documentRepository;
 
     // TODO: 비동기 워커 연동 시 주입
@@ -83,7 +83,6 @@ public class AnalysisJobServiceImpl implements AnalysisJobService {
 
     // ── internal ─────────────────────────────────────────────────────────────
     private void validateProject(String projectId) {
-        projectRepository.findByIdAndDeletedFalse(projectId)
-                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
     }
 }

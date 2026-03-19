@@ -10,7 +10,7 @@ import com.bidops.domain.document.enums.DocumentParseStatus;
 import com.bidops.domain.document.enums.DocumentType;
 import com.bidops.domain.document.repository.DocumentRepository;
 import com.bidops.domain.document.service.DocumentService;
-import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ import java.util.List;
 public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentRepository documentRepository;
-    private final ProjectRepository  projectRepository;
+    private final ProjectService     projectService;
     private final StorageService     storageService;
 
     @Override
@@ -99,8 +99,7 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     private void validateProject(String projectId) {
-        projectRepository.findByIdAndDeletedFalse(projectId)
-                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
     }
 
     private DocumentDto toDto(Document d) {

@@ -7,7 +7,7 @@ import com.bidops.domain.inquiry.enums.InquiryPriority;
 import com.bidops.domain.inquiry.enums.InquiryStatus;
 import com.bidops.domain.inquiry.repository.InquiryRepository;
 import com.bidops.domain.inquiry.service.InquiryService;
-import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +20,7 @@ import java.util.List;
 public class InquiryServiceImpl implements InquiryService {
 
     private final InquiryRepository inquiryRepository;
-    private final ProjectRepository projectRepository;
+    private final ProjectService projectService;
 
     @Override
     public List<InquiryDto> listInquiries(String projectId, InquiryStatus status, InquiryPriority priority, String requirementId) {
@@ -86,7 +86,6 @@ public class InquiryServiceImpl implements InquiryService {
     }
 
     private void validateProject(String projectId) {
-        projectRepository.findByIdAndDeletedFalse(projectId)
-                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
     }
 }

@@ -9,7 +9,7 @@ import com.bidops.domain.checklist.enums.RiskLevel;
 import com.bidops.domain.checklist.repository.ChecklistItemRepository;
 import com.bidops.domain.checklist.repository.SubmissionChecklistRepository;
 import com.bidops.domain.checklist.service.ChecklistService;
-import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class ChecklistServiceImpl implements ChecklistService {
 
     private final SubmissionChecklistRepository checklistRepository;
     private final ChecklistItemRepository itemRepository;
-    private final ProjectRepository projectRepository;
+    private final ProjectService projectService;
 
     // ── 체크리스트 묶음 ─────────────────────────────────────────────────────
 
@@ -139,7 +139,6 @@ public class ChecklistServiceImpl implements ChecklistService {
     }
 
     private void validateProject(String projectId) {
-        projectRepository.findByIdAndDeletedFalse(projectId)
-                .orElseThrow(() -> BidOpsException.notFound("프로젝트"));
+        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
     }
 }
