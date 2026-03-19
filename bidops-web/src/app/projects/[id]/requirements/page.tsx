@@ -51,7 +51,7 @@ export default function RequirementsPage() {
 
     if (detail.requirement.document_id) {
       documentApi.get(id, detail.requirement.document_id)
-        .then((doc: any) => setPdfUrl(doc.storage_path || null))
+        .then((doc: any) => setPdfUrl(doc.viewer_url || doc.storage_path || null))
         .catch(() => setPdfUrl(null));
     }
   };

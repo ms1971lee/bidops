@@ -16,3 +16,7 @@ node_modules/
 # Local-only config (contains machine-specific paths or credentials)
 bidops-api/gradle.properties
 .claude/
+
+# Local file storage (root level only)
+/storage/
+/bidops-api/storage/

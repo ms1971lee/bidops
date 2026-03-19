@@ -41,7 +41,15 @@ public class DocumentDto {
     @JsonProperty("uploaded_at")
     private LocalDateTime uploadedAt;
 
+    /** 프론트에서 PDF를 표시할 때 사용하는 URL */
+    @JsonProperty("viewer_url")
+    private String viewerUrl;
+
     public static DocumentDto from(Document d) {
+        return from(d, null);
+    }
+
+    public static DocumentDto from(Document d, String viewerUrl) {
         return DocumentDto.builder()
                 .id(d.getId())
                 .projectId(d.getProjectId())
@@ -53,6 +61,7 @@ public class DocumentDto {
                 .parseStatus(d.getParseStatus())
                 .uploadedBy(d.getUploadedBy())
                 .uploadedAt(d.getCreatedAt())
+                .viewerUrl(viewerUrl)
                 .build();
     }
 }
