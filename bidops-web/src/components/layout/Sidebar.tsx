@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
+  { href: "/dashboard", label: "대시보드" },
   { href: "/projects", label: "프로젝트" },
 ];
 
@@ -11,7 +12,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   return (
     <aside className="w-56 bg-gray-900 text-gray-200 min-h-screen p-4 flex flex-col gap-1">
-      <Link href="/projects" className="text-lg font-bold text-white mb-6 block">
+      <Link href="/dashboard" className="text-lg font-bold text-white mb-6 block">
         BidOps
       </Link>
       {NAV.map((n) => (
