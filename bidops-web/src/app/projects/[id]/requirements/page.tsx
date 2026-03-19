@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { requirementApi, documentApi, checklistApi, inquiryApi } from "@/lib/api";
 import StatusBadge from "@/components/common/StatusBadge";
-import PdfViewer from "@/components/common/PdfViewer";
+import PdfViewer, { parseBboxJson } from "@/components/common/PdfViewer";
+import type { BboxHighlight } from "@/components/common/PdfViewer";
 
 export default function RequirementsPage() {
   const { id } = useParams() as { id: string };
@@ -15,6 +16,7 @@ export default function RequirementsPage() {
   const [sources, setSources] = useState<any>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfPage, setPdfPage] = useState<number | undefined>(undefined);
+  const [pdfHighlight, setPdfHighlight] = useState<BboxHighlight | null>(null);
   const [showPdf, setShowPdf] = useState(false);
   const [linkedChecklist, setLinkedChecklist] = useState<any[]>([]);
   const [linkedInquiries, setLinkedInquiries] = useState<any[]>([]);
@@ -30,6 +32,7 @@ export default function RequirementsPage() {
     setSelected(detail);
     setSources(src);
     setPdfPage(undefined);
+    setPdfHighlight(null);
 
     // 연결된 체크리스트 항목 + 질의 로드
     const selectedReqId = detail.requirement.id;
@@ -59,8 +62,9 @@ export default function RequirementsPage() {
     load();
   };
 
-  const handlePageClick = (pageNo: number) => {
+  const handlePageClick = (pageNo: number, bboxJson?: string, label?: string) => {
     setPdfPage(pageNo);
+    setPdfHighlight(parseBboxJson(bboxJson, label));
     setShowPdf(true);
   };
 
@@ -141,16 +145,20 @@ export default function RequirementsPage() {
                 </div>
                 <div className="space-y-1">
                   {sources.source_text_blocks.map((block: any) => (
-                    <div key={block.id} className="bg-blue-50 border border-blue-100 rounded p-2">
+                    <div key={block.id}
+                      className="bg-blue-50 border border-blue-100 rounded p-2 cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => handlePageClick(block.page_no, block.bbox_json, block.anchor_label)}>
                       <div className="flex items-center gap-2 mb-1">
-                        <button onClick={() => handlePageClick(block.page_no)}
-                          className="text-xs font-mono text-blue-700 hover:underline font-medium">
+                        <span className="text-xs font-mono text-blue-700 font-medium">
                           p.{block.page_no}
-                        </button>
+                        </span>
                         {block.anchor_label && (
                           <span className="text-xs text-gray-500">{block.anchor_label}</span>
                         )}
                         <span className="text-xs text-gray-400">{block.excerpt_type}</span>
+                        {block.bbox_json && (
+                          <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded">bbox</span>
+                        )}
                       </div>
                       <div className="text-xs whitespace-pre-wrap text-gray-700">{block.raw_text}</div>
                     </div>
@@ -164,7 +172,7 @@ export default function RequirementsPage() {
                 <div className="text-xs text-gray-500 mb-1">참조 페이지</div>
                 <div className="flex gap-1 flex-wrap">
                   {sources.page_refs.map((p: number) => (
-                    <button key={p} onClick={() => handlePageClick(p)}
+                    <button key={p} onClick={() => handlePageClick(p, undefined, undefined)}
                       className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
                       p.{p}
                     </button>
@@ -269,7 +277,7 @@ export default function RequirementsPage() {
             PDF {pdfPage ? `- p.${pdfPage}` : ""}
           </div>
           <div className="h-[calc(100%-20px)]">
-            <PdfViewer url={pdfUrl} page={pdfPage} />
+            <PdfViewer url={pdfUrl} page={pdfPage} highlight={pdfHighlight} />
           </div>
         </div>
       )}
