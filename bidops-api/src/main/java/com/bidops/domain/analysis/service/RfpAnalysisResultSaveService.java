@@ -244,7 +244,7 @@ public class RfpAnalysisResultSaveService {
                 && !"ETC".equals(item.getRequirementType())) {
             warnings.add(ItemWarning.builder()
                     .index(index).field("requirement_type")
-                    .message("'" + item.getRequirementType() + "'은 현재 ETC로 매핑됩니다. enum 확장 필요")
+                    .message("'" + item.getRequirementType() + "'은 인식되지 않는 분류입니다. ETC로 매핑됩니다")
                     .build());
         }
 
@@ -267,37 +267,45 @@ public class RfpAnalysisResultSaveService {
         };
     }
 
-    // ── requirementType → RequirementCategory 변환 ──────────────────
-    // TODO: RequirementCategory enum 확장 후 1:1 매핑으로 전환
+    // ── requirementType → RequirementCategory 1:1 변환 ─────────────
 
     private RequirementCategory mapCategory(String requirementType) {
-        return switch (requirementType) {
-            case "FUNCTIONAL", "DATA_INTEGRATION", "UI_UX" -> RequirementCategory.FUNCTIONAL;
-            case "NON_FUNCTIONAL", "PERFORMANCE", "QUALITY", "INFRASTRUCTURE"
-                    -> RequirementCategory.NON_FUNCTIONAL;
-            case "SCHEDULE"      -> RequirementCategory.SCHEDULE;
-            case "PERSONNEL"     -> RequirementCategory.STAFFING;
-            case "TRACK_RECORD"  -> RequirementCategory.EXPERIENCE;
-            case "SECURITY"      -> RequirementCategory.SECURITY;
-            case "EVALUATION", "PRESENTATION" -> RequirementCategory.EVALUATION;
-            case "DELIVERABLE"   -> RequirementCategory.DELIVERABLE;
-            default              -> RequirementCategory.ETC;
-        };
+        try {
+            return RequirementCategory.valueOf(requirementType);
+        } catch (IllegalArgumentException e) {
+            return RequirementCategory.ETC;
+        }
     }
 
     // ── requirementCode 자동 채번 ───────────────────────────────────
 
     private String generateCode(RequirementCategory category, int seq) {
         String prefix = switch (category) {
-            case FUNCTIONAL     -> "SFR";
-            case NON_FUNCTIONAL -> "NFR";
-            case SCHEDULE       -> "SCH";
-            case STAFFING       -> "STF";
-            case EXPERIENCE     -> "EXP";
-            case SECURITY       -> "SEC";
-            case EVALUATION     -> "EVL";
-            case DELIVERABLE    -> "DLV";
-            case ETC            -> "ETC";
+            case BUSINESS_OVERVIEW -> "BOV";
+            case BACKGROUND        -> "BKG";
+            case OBJECTIVE         -> "OBJ";
+            case SCOPE             -> "SCP";
+            case FUNCTIONAL        -> "SFR";
+            case NON_FUNCTIONAL    -> "NFR";
+            case PERFORMANCE       -> "PFM";
+            case SECURITY          -> "SEC";
+            case QUALITY           -> "QUA";
+            case TESTING           -> "TST";
+            case DATA_INTEGRATION  -> "DAT";
+            case UI_UX             -> "UIX";
+            case INFRASTRUCTURE    -> "INF";
+            case PERSONNEL         -> "PSN";
+            case TRACK_RECORD      -> "TRK";
+            case SCHEDULE          -> "SCH";
+            case DELIVERABLE       -> "DLV";
+            case SUBMISSION        -> "SUB";
+            case PROPOSAL_GUIDE    -> "PPG";
+            case EVALUATION        -> "EVL";
+            case PRESENTATION      -> "PRS";
+            case MAINTENANCE       -> "MNT";
+            case TRAINING          -> "TRN";
+            case LEGAL             -> "LGL";
+            case ETC               -> "ETC";
         };
         return String.format("%s-%03d", prefix, seq);
     }
