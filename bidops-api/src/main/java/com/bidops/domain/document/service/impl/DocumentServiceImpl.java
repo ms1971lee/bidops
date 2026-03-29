@@ -5,12 +5,18 @@ import com.bidops.common.response.ListData;
 import com.bidops.common.storage.StorageService;
 import com.bidops.domain.document.dto.DocumentDto;
 import com.bidops.domain.document.dto.DocumentUploadRequest;
+import com.bidops.domain.document.dto.SourceExcerptDetailDto;
 import com.bidops.domain.document.entity.Document;
+import com.bidops.domain.document.entity.SourceExcerpt;
 import com.bidops.domain.document.enums.DocumentParseStatus;
 import com.bidops.domain.document.enums.DocumentType;
 import com.bidops.domain.document.repository.DocumentRepository;
+import com.bidops.domain.document.repository.SourceExcerptRepository;
 import com.bidops.domain.document.service.DocumentService;
-import com.bidops.domain.project.service.ProjectService;
+import com.bidops.domain.project.enums.ActivityType;
+import com.bidops.domain.project.enums.ProjectPermission;
+import com.bidops.domain.project.service.ProjectActivityService;
+import com.bidops.domain.project.service.ProjectAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,12 +31,14 @@ import java.util.List;
 public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentRepository documentRepository;
-    private final ProjectService     projectService;
+    private final SourceExcerptRepository sourceExcerptRepository;
+    private final ProjectAuthorizationService authorizationService;
     private final StorageService     storageService;
+    private final ProjectActivityService activityService;
 
     @Override
     public ListData<DocumentDto> listDocuments(String projectId, DocumentType type, DocumentParseStatus parseStatus) {
-        validateProject(projectId);
+        requirePermission(projectId, ProjectPermission.DOCUMENT_VIEW);
         List<DocumentDto> items = documentRepository
                 .findByProjectId(projectId, type, parseStatus)
                 .stream().map(d -> toDto(d)).toList();
@@ -42,7 +50,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional
     public DocumentDto uploadDocument(String projectId, DocumentUploadRequest request) {
-        validateProject(projectId);
+        requirePermission(projectId, ProjectPermission.DOCUMENT_UPLOAD);
 
         // MVP: PDF only — HWP/HWPX는 사용자가 PDF 변환 후 업로드
         String filename = request.getFile().getOriginalFilename();
@@ -68,28 +76,70 @@ public class DocumentServiceImpl implements DocumentService {
                 .parseStatus(DocumentParseStatus.UPLOADED)
                 .build();
 
-        return toDto(documentRepository.save(document));
+        Document saved = documentRepository.save(document);
+        activityService.record(projectId, ActivityType.DOCUMENT_UPLOADED,
+                "문서 업로드: " + saved.getFileName(),
+                com.bidops.auth.SecurityUtils.currentUserId(),
+                saved.getId(), "document", null);
+        return toDto(saved);
     }
 
     @Override
     public DocumentDto getDocument(String projectId, String documentId) {
+        requirePermission(projectId, ProjectPermission.DOCUMENT_VIEW);
         return toDto(findOrThrow(projectId, documentId));
     }
 
     @Override
     @Transactional
     public void deleteDocument(String projectId, String documentId) {
+        requirePermission(projectId, ProjectPermission.DOCUMENT_DELETE);
         Document doc = findOrThrow(projectId, documentId);
         storageService.delete(doc.getStoragePath());
         doc.delete();
+        activityService.record(projectId, ActivityType.DOCUMENT_DELETED,
+                "문서 삭제: " + doc.getFileName(),
+                com.bidops.auth.SecurityUtils.currentUserId(),
+                documentId, "document", null);
     }
 
     @Override
     public List<DocumentDto> listVersions(String projectId, String documentId) {
+        requirePermission(projectId, ProjectPermission.DOCUMENT_VIEW);
         Document doc = findOrThrow(projectId, documentId);
         return documentRepository
                 .findVersions(projectId, doc.getFileName())
                 .stream().map(d -> toDto(d)).toList();
+    }
+
+    @Override
+    @Transactional
+    public DocumentDto updateParseStatus(String projectId, String documentId, DocumentParseStatus status) {
+        return updateParseStatus(projectId, documentId, status, null);
+    }
+
+    @Override
+    @Transactional
+    public DocumentDto updateParseStatus(String projectId, String documentId, DocumentParseStatus status, Integer pageCount) {
+        Document doc = findOrThrow(projectId, documentId);
+        doc.updateParseStatus(status);
+        if (pageCount != null && pageCount > 0) {
+            doc.updatePageCount(pageCount);
+        }
+        return toDto(doc);
+    }
+
+    @Override
+    public SourceExcerptDetailDto getSourceExcerpt(String sourceExcerptId) {
+        SourceExcerpt excerpt = sourceExcerptRepository.findById(sourceExcerptId)
+                .orElseThrow(() -> BidOpsException.notFound("원문 발췌"));
+
+        // SourceExcerpt → Document → projectId 역추적 후 권한 검증
+        Document doc = documentRepository.findById(excerpt.getDocumentId())
+                .orElseThrow(() -> BidOpsException.notFound("문서"));
+        requirePermission(doc.getProjectId(), ProjectPermission.DOCUMENT_VIEW);
+
+        return SourceExcerptDetailDto.from(excerpt);
     }
 
     // ── internal ─────────────────────────────────────────────────────────────
@@ -98,8 +148,8 @@ public class DocumentServiceImpl implements DocumentService {
                 .orElseThrow(() -> BidOpsException.notFound("문서"));
     }
 
-    private void validateProject(String projectId) {
-        projectService.validateAccess(com.bidops.auth.SecurityUtils.currentUserId(), projectId);
+    private void requirePermission(String projectId, ProjectPermission permission) {
+        authorizationService.requirePermission(projectId, com.bidops.auth.SecurityUtils.currentUserId(), permission);
     }
 
     private DocumentDto toDto(Document d) {

@@ -20,6 +20,10 @@ public class User extends BaseEntity {
     @Column(length = 36)
     private String id;
 
+    @Setter
+    @Column(name = "organization_id", length = 36)
+    private String organizationId;
+
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 

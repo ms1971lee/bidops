@@ -24,6 +24,7 @@ dependencies {
 
     // DB
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    runtimeOnly 'com.h2database:h2'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'
@@ -36,6 +37,9 @@ dependencies {
 
     // S3 호환 스토리지 (MinIO Java SDK)
     implementation 'io.minio:minio:8.5.17'
+
+    // PDF 텍스트 추출
+    implementation 'org.apache.pdfbox:pdfbox:3.0.4'
 
     // JSON (이미 spring-boot-starter-web에 포함되지만 명시)
     implementation 'com.fasterxml.jackson.core:jackson-databind'

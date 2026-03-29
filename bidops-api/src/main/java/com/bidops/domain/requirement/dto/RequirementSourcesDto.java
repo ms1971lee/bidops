@@ -1,11 +1,13 @@
 package com.bidops.domain.requirement.dto;
 
 import com.bidops.domain.document.entity.SourceExcerpt;
+import com.bidops.domain.requirement.entity.RequirementSource;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -34,28 +36,55 @@ public class RequirementSourcesDto {
     /**
      * SourceExcerpt 목록으로부터 pageRefs / clauseRefs 조합.
      */
-    public static RequirementSourcesDto from(List<SourceExcerpt> excerpts) {
-        List<Integer> pageRefs = excerpts.stream()
-                .map(SourceExcerpt::getPageNo)
-                .distinct()
-                .sorted()
+    /**
+     * RequirementSource + SourceExcerpt 조합으로 생성.
+     * linkType 정보를 포함한다.
+     */
+    public static RequirementSourcesDto from(List<RequirementSource> sources,
+                                              Map<String, SourceExcerpt> excerptMap) {
+        List<SourceExcerptDto> blocks = sources.stream()
+                .filter(rs -> excerptMap.containsKey(rs.getSourceExcerptId()))
+                .map(rs -> {
+                    SourceExcerpt e = excerptMap.get(rs.getSourceExcerptId());
+                    return SourceExcerptDto.from(e, rs.getLinkType().name());
+                })
                 .collect(Collectors.toList());
 
-        List<String> clauseRefs = excerpts.stream()
-                .map(SourceExcerpt::getAnchorLabel)
+        List<Integer> pageRefs = blocks.stream()
+                .map(SourceExcerptDto::getPageNo)
+                .distinct().sorted()
+                .collect(Collectors.toList());
+
+        List<String> clauseRefs = blocks.stream()
+                .map(SourceExcerptDto::getAnchorLabel)
                 .filter(label -> label != null && !label.isBlank())
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<SourceExcerptDto> blocks = excerpts.stream()
-                .map(SourceExcerptDto::from)
+                .distinct().sorted()
                 .collect(Collectors.toList());
 
         return RequirementSourcesDto.builder()
                 .pageRefs(pageRefs)
                 .clauseRefs(clauseRefs)
                 .sourceTextBlocks(blocks)
+                .build();
+    }
+
+    /** linkType 없이 SourceExcerpt만으로 생성 (하위 호환). */
+    public static RequirementSourcesDto from(List<SourceExcerpt> excerpts) {
+        List<SourceExcerptDto> blocks = excerpts.stream()
+                .map(e -> SourceExcerptDto.from(e, "PRIMARY"))
+                .collect(Collectors.toList());
+
+        List<Integer> pageRefs = excerpts.stream()
+                .map(SourceExcerpt::getPageNo).distinct().sorted()
+                .collect(Collectors.toList());
+
+        List<String> clauseRefs = excerpts.stream()
+                .map(SourceExcerpt::getAnchorLabel)
+                .filter(l -> l != null && !l.isBlank()).distinct().sorted()
+                .collect(Collectors.toList());
+
+        return RequirementSourcesDto.builder()
+                .pageRefs(pageRefs).clauseRefs(clauseRefs).sourceTextBlocks(blocks)
                 .build();
     }
 
@@ -81,11 +110,14 @@ public class RequirementSourcesDto {
         @JsonProperty("normalized_text")
         private String normalizedText;
 
-        /** bbox 좌표 JSON 문자열 그대로 반환 (클라이언트 파싱) */
         @JsonProperty("bbox_json")
         private String bboxJson;
 
-        public static SourceExcerptDto from(SourceExcerpt e) {
+        /** PRIMARY: 핵심 원문, SUPPORTING: 보조 근거 */
+        @JsonProperty("link_type")
+        private String linkType;
+
+        public static SourceExcerptDto from(SourceExcerpt e, String linkType) {
             return SourceExcerptDto.builder()
                     .id(e.getId())
                     .pageNo(e.getPageNo())
@@ -94,6 +126,7 @@ public class RequirementSourcesDto {
                     .rawText(e.getRawText())
                     .normalizedText(e.getNormalizedText())
                     .bboxJson(e.getBboxJson())
+                    .linkType(linkType)
                     .build();
         }
     }

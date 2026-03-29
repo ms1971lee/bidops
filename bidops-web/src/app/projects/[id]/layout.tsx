@@ -7,11 +7,15 @@ import { projectApi } from "@/lib/api";
 import StatusBadge from "@/components/common/StatusBadge";
 
 const TABS = [
-  { key: "", label: "개요" },
+  { key: "", label: "분석 대시보드" },
   { key: "/documents", label: "문서" },
   { key: "/requirements", label: "요구사항" },
   { key: "/checklists", label: "체크리스트" },
   { key: "/inquiries", label: "질의응답" },
+  { key: "/artifacts", label: "산출물" },
+  { key: "/search", label: "유사검색" },
+  { key: "/history", label: "이력" },
+  { key: "/settings/members", label: "멤버" },
 ];
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {

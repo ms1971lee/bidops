@@ -21,6 +21,7 @@ tags:
   - name: Queries
   - name: Artifacts
   - name: Dashboard
+  - name: SourceExcerpts
   - name: AuditLogs
 
 security:
@@ -406,11 +407,20 @@ paths:
           name: status
           schema: { $ref: '#/components/schemas/ChecklistStatus' }
         - in: query
+          name: risk_level
+          schema: { $ref: '#/components/schemas/RiskLevel' }
+        - in: query
           name: owner_user_id
           schema: { type: string }
         - in: query
-          name: mandatory_only
+          name: mandatory
           schema: { type: boolean }
+        - in: query
+          name: keyword
+          schema: { type: string, description: "항목 텍스트 검색 (LIKE)" }
+        - in: query
+          name: requirement_id
+          schema: { type: string }
       responses:
         '200':
           description: 체크리스트 목록
@@ -579,21 +589,63 @@ paths:
               schema: { $ref: '#/components/schemas/ArtifactResponse' }
 
   /projects/{projectId}/artifacts/{artifactId}:
+    get:
+      tags: [Artifacts]
+      summary: 산출물 상세
+      operationId: getArtifact
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactResponse' }
     patch:
       tags: [Artifacts]
-      summary: 산출물 상태 변경
+      summary: 산출물 수정
       operationId: updateArtifact
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/ArtifactId'
       requestBody:
-        required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/ArtifactUpdateRequest' }
       responses:
         '200':
-          description: 산출물 상태 변경 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactResponse' }
+    delete:
+      tags: [Artifacts]
+      summary: 산출물 삭제
+      operationId: deleteArtifact
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      responses:
+        '200':
+          description: 삭제 완료
+
+  /projects/{projectId}/artifacts/{artifactId}/status:
+    post:
+      tags: [Artifacts]
+      summary: 산출물 상태 변경
+      operationId: changeArtifactStatus
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/ArtifactStatus' }
+      responses:
+        '200':
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ArtifactResponse' }
@@ -601,17 +653,37 @@ paths:
   /projects/{projectId}/artifacts/{artifactId}/versions:
     get:
       tags: [Artifacts]
-      summary: 산출물 버전 목록 조회
+      summary: 버전 목록
       operationId: listArtifactVersions
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/ArtifactId'
       responses:
         '200':
-          description: 산출물 버전 목록
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ArtifactVersionListResponse' }
+    post:
+      tags: [Artifacts]
+      summary: 버전 업로드
+      operationId: uploadArtifactVersion
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ArtifactId'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                version_note: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactVersionResponse' }
 
   /projects/{projectId}/dashboard:
     get:
@@ -657,6 +729,29 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditLogListResponse' }
+
+  /source-excerpts/{id}:
+    get:
+      tags: [SourceExcerpts]
+      summary: SourceExcerpt 단건 조회
+      operationId: getSourceExcerpt
+      description: >
+        source_excerpt_id 로 원문 발췌 블록을 직접 조회한다.
+        document_id 가 포함되어 프론트에서 PDF URL 해석에 사용할 수 있다.
+        호출자는 해당 문서가 속한 프로젝트의 DOCUMENT_VIEW 권한이 필요하다.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: SourceExcerpt 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SourceExcerptDetailResponse' }
+        '404':
+          description: 원문 발췌 블록을 찾을 수 없음
 
 components:
   securitySchemes:
@@ -741,6 +836,9 @@ components:
     DocumentParseStatus:
       type: string
       enum: [UPLOADED, PARSING, PARSED, FAILED]
+    ExcerptType:
+      type: string
+      enum: [PARAGRAPH, TABLE, LIST, HEADER, FOOTNOTE]
     AnalysisJobStatus:
       type: string
       enum: [PENDING, RUNNING, COMPLETED, FAILED]
@@ -774,12 +872,14 @@ components:
     ChecklistType:
       type: string
       enum: [SUBMISSION, EVALUATION, EVIDENCE]
-    ArtifactType:
+    AssetType:
       type: string
-      enum: [PROPOSAL_OUTLINE, REQUIREMENT_SUMMARY, PRESENTATION_SUMMARY, CUSTOM]
+      enum: [PROPOSAL, DESIGN, PLAN, REPORT, EVIDENCE, PRESENTATION, ETC]
+      description: 산출물 유형
     ArtifactStatus:
       type: string
-      enum: [DRAFT, REVIEWING, APPROVED, ARCHIVED]
+      enum: [DRAFT, IN_PROGRESS, REVIEW, APPROVED, SUBMITTED]
+      description: 산출물 상태
 
     Project:
       type: object
@@ -807,8 +907,10 @@ components:
         version: { type: integer }
         version_note: { type: string }
         parse_status: { $ref: '#/components/schemas/DocumentParseStatus' }
+        page_count: { type: integer, nullable: true, description: "PDF 전체 페이지 수 (파싱 완료 후 채워짐)" }
         uploaded_by: { type: string }
         uploaded_at: { type: string, format: date-time }
+        viewer_url: { type: string, description: "PDF 열기/다운로드 URL" }
 
     AnalysisJob:
       type: object
@@ -888,17 +990,32 @@ components:
       type: object
       required: [id, page_no, excerpt_type, raw_text]
       properties:
-        id: { type: string }
-        page_no: { type: integer }
+        id:
+          type: string
+          description: SourceExcerpt ID
+        page_no:
+          type: integer
+          description: 페이지 번호 (1-based)
         excerpt_type:
           type: string
           enum: [PARAGRAPH, TABLE, LIST, HEADER, FOOTNOTE]
-        anchor_label: { type: string }
-        raw_text: { type: string }
-        normalized_text: { type: string }
+          description: 발췌 유형
+        anchor_label:
+          type: string
+          description: 조항 번호 (예 3.2.1, 제4조)
+        raw_text:
+          type: string
+          description: 원문 텍스트
+        normalized_text:
+          type: string
+          description: 정규화된 텍스트
         bbox_json:
-          type: object
-          additionalProperties: true
+          type: string
+          description: "페이지 내 위치 좌표 JSON (% 단위). 예: {\"x\":5.9,\"y\":6.0,\"w\":88.2,\"h\":3.6}"
+        link_type:
+          type: string
+          enum: [PRIMARY, SUPPORTING]
+          description: "근거 연결 유형. PRIMARY: 핵심 원문, SUPPORTING: 보조 근거"
 
     RequirementSources:
       type: object
@@ -950,19 +1067,31 @@ components:
 
     Artifact:
       type: object
-      required: [id, type, title, status, created_at]
+      required: [id, project_id, title, asset_type, status]
       properties:
         id: { type: string }
         project_id: { type: string }
-        type: { $ref: '#/components/schemas/ArtifactType' }
         title: { type: string }
-        content:
-          type: object
-          additionalProperties: true
+        asset_type: { $ref: '#/components/schemas/AssetType' }
         status: { $ref: '#/components/schemas/ArtifactStatus' }
-        version: { type: integer }
+        description: { type: string }
+        linked_requirement_id: { type: string }
+        linked_checklist_item_id: { type: string }
         created_at: { type: string, format: date-time }
+        created_by: { type: string }
         updated_at: { type: string, format: date-time }
+
+    ArtifactVersion:
+      type: object
+      required: [id, version, file_name]
+      properties:
+        id: { type: string }
+        version: { type: integer }
+        file_name: { type: string }
+        version_note: { type: string }
+        uploaded_by: { type: string }
+        viewer_url: { type: string, description: 파일 열기/다운로드 URL }
+        created_at: { type: string, format: date-time }
 
     Dashboard:
       type: object
@@ -1115,21 +1244,22 @@ components:
 
     ArtifactCreateRequest:
       type: object
-      required: [type, title]
+      required: [title, asset_type]
       properties:
-        type: { $ref: '#/components/schemas/ArtifactType' }
         title: { type: string }
-        content:
-          type: object
-          additionalProperties: true
+        asset_type: { $ref: '#/components/schemas/AssetType' }
+        description: { type: string }
+        linked_requirement_id: { type: string }
+        linked_checklist_item_id: { type: string }
 
     ArtifactUpdateRequest:
       type: object
       properties:
-        status: { $ref: '#/components/schemas/ArtifactStatus' }
-        content:
-          type: object
-          additionalProperties: true
+        title: { type: string }
+        asset_type: { $ref: '#/components/schemas/AssetType' }
+        description: { type: string }
+        linked_requirement_id: { type: string }
+        linked_checklist_item_id: { type: string }
 
     ProjectResponse:
       type: object
@@ -1339,6 +1469,15 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
         error: { type: 'null' }
 
+    ArtifactVersionResponse:
+      type: object
+      required: [success, data, meta, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/ArtifactVersion' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
     ArtifactVersionListResponse:
       type: object
       required: [success, data, meta, error]
@@ -1350,7 +1489,7 @@ components:
           properties:
             items:
               type: array
-              items: { $ref: '#/components/schemas/Artifact' }
+              items: { $ref: '#/components/schemas/ArtifactVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
         error: { type: 'null' }
 
@@ -1377,4 +1516,26 @@ components:
               items: { $ref: '#/components/schemas/AuditLog' }
             total_count: { type: integer }
         meta: { $ref: '#/components/schemas/Meta' }
+        error: { type: 'null' }
+
+    SourceExcerptDetail:
+      type: object
+      required: [id, document_id, page_no, excerpt_type, raw_text]
+      description: "SourceExcerpt 단건 조회 시 반환. document_id 포함."
+      properties:
+        id: { type: string }
+        document_id: { type: string, description: "소속 문서 ID (PDF URL 해석에 사용)" }
+        page_no: { type: integer, description: "1-based 페이지 번호" }
+        excerpt_type: { $ref: '#/components/schemas/ExcerptType' }
+        anchor_label: { type: string, description: "조항 번호 (e.g. 3.1.2)" }
+        raw_text: { type: string }
+        normalized_text: { type: string }
+        bbox_json: { type: string, description: "페이지 내 좌표 JSON {x,y,w,h} (% 단위)" }
+
+    SourceExcerptDetailResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/SourceExcerptDetail' }
         error: { type: 'null' }

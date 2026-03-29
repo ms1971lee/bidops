@@ -67,6 +67,14 @@ public class ChecklistItem extends BaseEntity {
     @Column(name = "risk_note", length = 500)
     private String riskNote;
 
+    /** 담당자 user ID */
+    @Column(name = "owner_user_id", length = 36)
+    private String ownerUserId;
+
+    /** 최근 조치/메모 코멘트 */
+    @Column(name = "action_comment", length = 1000)
+    private String actionComment;
+
     // ── 변경 메서드 ────────────────────────────────────────────────────────
     public void update(String itemText, Boolean mandatoryFlag, String dueHint,
                        RiskLevel riskLevel, String riskNote,
@@ -81,5 +89,13 @@ public class ChecklistItem extends BaseEntity {
 
     public void changeStatus(ChecklistItemStatus newStatus) {
         this.currentStatus = newStatus;
+    }
+
+    public void assignOwner(String ownerUserId) {
+        this.ownerUserId = ownerUserId;
+    }
+
+    public void setActionComment(String comment) {
+        this.actionComment = comment;
     }
 }

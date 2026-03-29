@@ -307,17 +307,31 @@ Requirement와 SourceExcerpt 연결 엔티티.
 - actionComment
 - actedAt
 
-## 4.17 AttachmentAsset
-산출물/부속 업로드 파일.
+## 4.17 Artifact (구 AttachmentAsset)
+프로젝트 산출물.
 
 주요 컬럼:
 - id (PK)
 - projectId (FK)
-- assetType (PROPOSAL / PPT / EVIDENCE / CERTIFICATE / PROFILE)
 - title
+- assetType (PROPOSAL / DESIGN / PLAN / REPORT / EVIDENCE / PRESENTATION / ETC)
+- status (DRAFT / IN_PROGRESS / REVIEW / APPROVED / SUBMITTED)
+- description
+- linkedRequirementId (FK, 선택)
+- linkedChecklistItemId (FK, 선택)
+- deleted (soft delete)
+
+## 4.17b ArtifactVersion
+산출물 버전별 파일.
+
+주요 컬럼:
+- id (PK)
+- artifactId (FK)
+- version (정수, 자동 채번)
+- fileName
 - storagePath
-- uploadedByUserId (FK)
-- uploadedAt
+- versionNote
+- uploadedBy (FK)
 
 ## 4.18 ProjectActivityLog
 주요 활동 감사 로그.

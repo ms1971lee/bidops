@@ -28,12 +28,16 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generate(String userId, String email, String name) {
+    public String generate(String userId, String email, String name, String organizationId) {
         Date now = new Date();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userId)
                 .claim("email", email)
-                .claim("name", name)
+                .claim("name", name);
+        if (organizationId != null) {
+            builder.claim("organizationId", organizationId);
+        }
+        return builder
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiryMs))
                 .signWith(key())
@@ -59,5 +63,9 @@ public class JwtTokenProvider {
 
     public String getUserId(String token) {
         return parse(token).getSubject();
+    }
+
+    public String getOrganizationId(String token) {
+        return parse(token).get("organizationId", String.class);
     }
 }

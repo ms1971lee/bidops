@@ -68,6 +68,30 @@ public class RequirementInsight extends BaseEntity {
     @Column(name = "generated_by_job_id", length = 36)
     private String generatedByJobId;
 
+    /** 평가 시 중점 확인 사항 */
+    @Column(name = "evaluation_focus", columnDefinition = "TEXT")
+    private String evaluationFocus;
+
+    /** 필요 증빙/근거 자료 */
+    @Column(name = "required_evidence", columnDefinition = "TEXT")
+    private String requiredEvidence;
+
+    /** 제안서 초안 스니펫 */
+    @Column(name = "draft_proposal_snippet", columnDefinition = "TEXT")
+    private String draftProposalSnippet;
+
+    /** 발주처 질의 필요 사항 */
+    @Column(name = "clarification_questions", columnDefinition = "TEXT")
+    private String clarificationQuestions;
+
+    // ── 프롬프트 버전 추적 ──────────────────────────────────────────────────────
+
+    @Column(name = "split_prompt_version", length = 50)
+    private String splitPromptVersion;
+
+    @Column(name = "analysis_prompt_version", length = 50)
+    private String analysisPromptVersion;
+
     public void update(String factSummary, String interpretationSummary,
                        String intentSummary, String proposalPoint,
                        String implementationApproach, String expectedDeliverablesJson,

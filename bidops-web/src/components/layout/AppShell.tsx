@@ -4,12 +4,14 @@ import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import Sidebar from "./Sidebar";
 
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password"];
+
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const isLoginPage = pathname === "/login";
+  const isPublicPage = PUBLIC_PATHS.includes(pathname);
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 

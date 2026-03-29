@@ -29,4 +29,6 @@ public interface InquiryRepository extends JpaRepository<Inquiry, String> {
     Optional<Inquiry> findByIdAndProjectId(String id, String projectId);
 
     long countByProjectId(String projectId);
+
+    boolean existsByProjectIdAndRequirementId(String projectId, String requirementId);
 }

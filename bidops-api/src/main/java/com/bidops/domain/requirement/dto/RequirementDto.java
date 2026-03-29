@@ -57,6 +57,36 @@ public class RequirementDto {
     @JsonProperty("query_needed")
     private boolean queryNeeded;
 
+    @JsonProperty("original_req_nos")
+    private String originalReqNos;
+
+    @JsonProperty("extraction_status")
+    private String extractionStatus;
+
+    @JsonProperty("merge_reason")
+    private String mergeReason;
+
+    @JsonProperty("archived")
+    private boolean archived;
+
+    @JsonProperty("visible")
+    private boolean visible;
+
+    @JsonProperty("extraction_status_v2")
+    private String extractionStatusV2;
+
+    @JsonProperty("enrichment_status")
+    private String enrichmentStatus;
+
+    @JsonProperty("quality_gate_status")
+    private String qualityGateStatus;
+
+    @JsonProperty("atomic_flag")
+    private boolean atomicFlag;
+
+    @JsonProperty("source_clause_id")
+    private String sourceClauseId;
+
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
 
@@ -79,6 +109,16 @@ public class RequirementDto {
                 .reviewStatus(r.getReviewStatus())
                 .factLevel(r.getFactLevel())
                 .queryNeeded(r.isQueryNeeded())
+                .originalReqNos(r.getOriginalReqNos())
+                .extractionStatus(r.getExtractionStatus())
+                .mergeReason(r.getMergeReason())
+                .archived(r.isArchived())
+                .visible(r.isVisible())
+                .extractionStatusV2(r.getExtractionStatusV2())
+                .enrichmentStatus(r.getEnrichmentStatus())
+                .qualityGateStatus(r.getQualityGateStatus())
+                .atomicFlag(r.isAtomicFlag())
+                .sourceClauseId(r.getSourceClauseId())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();

@@ -19,6 +19,8 @@ public interface ChecklistItemRepository extends JpaRepository<ChecklistItem, St
               AND (:riskLevel     IS NULL OR i.riskLevel            = :riskLevel)
               AND (:mandatory     IS NULL OR i.mandatoryFlag        = :mandatory)
               AND (:requirementId IS NULL OR i.linkedRequirementId  = :requirementId)
+              AND (:ownerUserId   IS NULL OR i.ownerUserId          = :ownerUserId)
+              AND (:keyword       IS NULL OR LOWER(i.itemText) LIKE LOWER(CONCAT('%', :keyword, '%')))
             ORDER BY i.itemCode ASC
             """)
     List<ChecklistItem> search(
@@ -26,7 +28,9 @@ public interface ChecklistItemRepository extends JpaRepository<ChecklistItem, St
             @Param("status")        ChecklistItemStatus status,
             @Param("riskLevel")     RiskLevel riskLevel,
             @Param("mandatory")     Boolean mandatory,
-            @Param("requirementId") String requirementId);
+            @Param("requirementId") String requirementId,
+            @Param("ownerUserId")   String ownerUserId,
+            @Param("keyword")       String keyword);
 
     Optional<ChecklistItem> findByIdAndChecklistId(String id, String checklistId);
 

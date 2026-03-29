@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface RequirementRepository extends JpaRepository<Requirement, String> {
@@ -19,6 +20,7 @@ public interface RequirementRepository extends JpaRepository<Requirement, String
     @Query("""
             SELECT r FROM Requirement r
             WHERE r.projectId = :projectId
+              AND r.archived = false
               AND (:category        IS NULL OR r.category        = :category)
               AND (:mandatory       IS NULL OR r.mandatoryFlag   = :mandatory)
               AND (:evidenceReq     IS NULL OR r.evidenceRequiredFlag = :evidenceReq)
@@ -27,9 +29,9 @@ public interface RequirementRepository extends JpaRepository<Requirement, String
               AND (:factLevel       IS NULL OR r.factLevel       = :factLevel)
               AND (:queryNeeded     IS NULL OR r.queryNeeded     = :queryNeeded)
               AND (:keyword         IS NULL
-                   OR r.title        LIKE %:keyword%
-                   OR r.originalText LIKE %:keyword%
-                   OR r.requirementCode LIKE %:keyword%)
+                   OR LOWER(r.title)        LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(r.originalText) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(r.requirementCode) LIKE LOWER(CONCAT('%', :keyword, '%')))
             """)
     Page<Requirement> search(
             @Param("projectId")      String projectId,
@@ -46,4 +48,8 @@ public interface RequirementRepository extends JpaRepository<Requirement, String
     Optional<Requirement> findByIdAndProjectId(String id, String projectId);
 
     boolean existsByDocumentIdAndOriginalText(String documentId, String originalText);
+
+    List<Requirement> findByProjectIdAndQueryNeededTrue(String projectId);
+
+    List<Requirement> findByDocumentId(String documentId);
 }

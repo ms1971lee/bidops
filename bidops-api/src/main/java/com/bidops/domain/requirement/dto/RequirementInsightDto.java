@@ -57,6 +57,18 @@ public class RequirementInsightDto {
     @JsonProperty("generated_by_job_id")
     private String generatedByJobId;
 
+    @JsonProperty("evaluation_focus")
+    private String evaluationFocus;
+
+    @JsonProperty("required_evidence")
+    private String requiredEvidence;
+
+    @JsonProperty("draft_proposal_snippet")
+    private String draftProposalSnippet;
+
+    @JsonProperty("clarification_questions")
+    private String clarificationQuestions;
+
     // ── factory ──────────────────────────────────────────────────────────────
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -74,6 +86,10 @@ public class RequirementInsightDto {
                 .queryNeeded(i.isQueryNeeded())
                 .factLevel(i.getFactLevel())
                 .generatedByJobId(i.getGeneratedByJobId())
+                .evaluationFocus(i.getEvaluationFocus())
+                .requiredEvidence(i.getRequiredEvidence())
+                .draftProposalSnippet(i.getDraftProposalSnippet())
+                .clarificationQuestions(i.getClarificationQuestions())
                 .build();
     }
 

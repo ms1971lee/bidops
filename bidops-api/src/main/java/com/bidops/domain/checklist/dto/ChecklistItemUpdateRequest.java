@@ -26,4 +26,10 @@ public class ChecklistItemUpdateRequest {
 
     @JsonProperty("linked_requirement_id")
     private String linkedRequirementId;
+
+    @JsonProperty("owner_user_id")
+    private String ownerUserId;
+
+    @JsonProperty("action_comment")
+    private String actionComment;
 }

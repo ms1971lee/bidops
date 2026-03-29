@@ -46,4 +46,12 @@ public class ProjectMember {
     public enum ProjectRole {
         OWNER, ADMIN, EDITOR, REVIEWER, VIEWER
     }
+
+    public boolean hasRole(ProjectRole requiredRole) {
+        return this.projectRole.ordinal() <= requiredRole.ordinal();
+    }
+
+    public void changeRole(ProjectRole newRole) {
+        this.projectRole = newRole;
+    }
 }

@@ -49,6 +49,10 @@ public class Document extends BaseEntity {
     @Column(name = "uploaded_by", length = 36)
     private String uploadedBy;
 
+    /** 문서 전체 페이지 수 (파싱 완료 후 설정) */
+    @Column(name = "page_count")
+    private Integer pageCount;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean deleted = false;
@@ -56,6 +60,10 @@ public class Document extends BaseEntity {
     // ── 변경 메서드 ────────────────────────────────────────────────────────────
     public void updateParseStatus(DocumentParseStatus status) {
         this.parseStatus = status;
+    }
+
+    public void updatePageCount(Integer pageCount) {
+        this.pageCount = pageCount;
     }
 
     public void delete() {

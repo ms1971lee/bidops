@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * 저장된 파일을 브라우저에 서빙하는 엔드포인트.
  * GET /api/v1/files/{storagePath} → PDF inline 표시.
@@ -27,8 +30,10 @@ public class FileController {
     @GetMapping("/**")
     @Operation(summary = "파일 다운로드/뷰", operationId = "getFile")
     public ResponseEntity<Resource> getFile(HttpServletRequest request) {
-        // /api/v1/files/ 이후 전체 경로 추출
-        String path = request.getRequestURI().substring("/api/v1/files/".length());
+        // /api/v1/files/ 이후 전체 경로 추출 (한글 파일명 디코딩)
+        String path = URLDecoder.decode(
+                request.getRequestURI().substring("/api/v1/files/".length()),
+                StandardCharsets.UTF_8);
         Resource resource = storageService.load(path);
 
         return ResponseEntity.ok()

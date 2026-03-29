@@ -2,6 +2,7 @@ package com.bidops.domain.project.controller;
 
 import com.bidops.auth.SecurityUtils;
 import com.bidops.common.response.ApiResponse;
+import com.bidops.domain.project.dto.MemberRoleChangeRequest;
 import com.bidops.domain.project.dto.ProjectMemberAddRequest;
 import com.bidops.domain.project.dto.ProjectMemberDto;
 import com.bidops.domain.project.service.ProjectMemberService;
@@ -44,5 +45,15 @@ public class ProjectMemberController {
             @PathVariable String targetUserId) {
         memberService.removeMember(SecurityUtils.currentUserId(), projectId, targetUserId);
         return ApiResponse.ok();
+    }
+
+    @PatchMapping("/{memberId}/role")
+    @Operation(summary = "멤버 역할 변경", operationId = "changeProjectMemberRole")
+    public ApiResponse<ProjectMemberDto> changeRole(
+            @PathVariable String projectId,
+            @PathVariable String memberId,
+            @RequestBody @Valid MemberRoleChangeRequest request) {
+        return ApiResponse.ok(
+                memberService.changeRole(SecurityUtils.currentUserId(), projectId, memberId, request));
     }
 }

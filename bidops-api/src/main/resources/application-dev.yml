@@ -1,0 +1,34 @@
+# dev 프로파일: 실제 Azure DI + OpenAI 연동
+# secret 값은 환경변수로 주입 (이 파일에 실제 키를 넣지 말 것)
+#
+# 필수 환경변수:
+#   AZURE_DI_ENDPOINT  - Azure Document Intelligence 엔드포인트
+#   AZURE_DI_API_KEY   - Azure DI API 키
+#   OPENAI_API_KEY     - OpenAI API 키
+#
+# IntelliJ 실행 방법:
+#   Run/Debug Configuration > Environment variables 에 위 값 추가
+
+spring:
+  datasource:
+    url: jdbc:mariadb://localhost:3306/bidops?useSSL=false&serverTimezone=Asia/Seoul
+    username: bidops
+    password: bidops1234
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+
+bidops:
+  azure-di:
+    enabled: true
+
+logging:
+  level:
+    com.bidops: DEBUG
+    org.hibernate.SQL: DEBUG

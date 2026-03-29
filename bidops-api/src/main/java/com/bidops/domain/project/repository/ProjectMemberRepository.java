@@ -16,4 +16,6 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, St
     java.util.Optional<ProjectMember> findByProjectIdAndUserId(String projectId, String userId);
 
     void deleteByProjectIdAndUserId(String projectId, String userId);
+
+    long countByProjectIdAndProjectRole(String projectId, ProjectMember.ProjectRole role);
 }

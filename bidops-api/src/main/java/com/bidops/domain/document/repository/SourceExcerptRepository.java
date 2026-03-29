@@ -2,8 +2,10 @@ package com.bidops.domain.document.repository;
 
 import com.bidops.domain.document.entity.SourceExcerpt;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,4 +33,7 @@ public interface SourceExcerptRepository extends JpaRepository<SourceExcerpt, St
      */
     @Query("SELECT se FROM SourceExcerpt se WHERE se.id IN :ids ORDER BY se.pageNo ASC, se.id ASC")
     List<SourceExcerpt> findAllByIdInOrdered(@Param("ids") List<String> ids);
+
+    @Modifying @Transactional
+    void deleteByDocumentId(String documentId);
 }

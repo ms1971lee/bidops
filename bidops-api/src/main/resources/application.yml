@@ -46,6 +46,15 @@ bidops:
   security:
     jwt-secret: ${JWT_SECRET:change-me-in-production}
     jwt-expiry-ms: ${JWT_EXPIRY_MS:86400000}
+  ai:
+    openai-api-key: ${BIDOPS_AI_OPENAI_API_KEY:}
+    openai-model: ${BIDOPS_AI_OPENAI_MODEL:gpt-4o-2024-11-20}
+    openai-base-url: ${BIDOPS_AI_OPENAI_BASE_URL:https://api.openai.com/v1}
+    max-text-length: ${AI_MAX_TEXT_LENGTH:80000}
+  azure-di:
+    endpoint: ${AZURE_DI_ENDPOINT:}
+    api-key: ${AZURE_DI_API_KEY:}
+    enabled: ${AZURE_DI_ENABLED:false}
 
 logging:
   level:

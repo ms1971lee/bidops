@@ -17,6 +17,10 @@ node_modules/
 bidops-api/gradle.properties
 .claude/
 
+# Secrets / env files
+.env
+*.env.local
+
 # Local file storage (root level only)
 /storage/
 /bidops-api/storage/

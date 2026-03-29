@@ -16,4 +16,16 @@ public interface AnalysisJobService {
 
     /** GET /projects/{projectId}/analysis-jobs/{jobId} */
     AnalysisJobDto getJob(String projectId, String jobId);
+
+    /** POST /projects/{projectId}/analysis-jobs/{jobId}/start (워커 콜백) */
+    AnalysisJobDto startJob(String projectId, String jobId);
+
+    /** POST /projects/{projectId}/analysis-jobs/{jobId}/complete (워커 콜백) */
+    AnalysisJobDto completeJob(String projectId, String jobId, int resultCount);
+
+    /** POST /projects/{projectId}/analysis-jobs/{jobId}/fail (워커 콜백) */
+    AnalysisJobDto failJob(String projectId, String jobId, String errorCode, String errorMessage);
+
+    /** POST /projects/{projectId}/analysis-jobs/{jobId}/retry (수동 재시도) */
+    AnalysisJobDto retryJob(String projectId, String jobId);
 }

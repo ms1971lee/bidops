@@ -45,6 +45,12 @@ public class ChecklistItemDto {
     @JsonProperty("source_excerpt_id")
     private String sourceExcerptId;
 
+    @JsonProperty("owner_user_id")
+    private String ownerUserId;
+
+    @JsonProperty("action_comment")
+    private String actionComment;
+
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
 
@@ -64,6 +70,8 @@ public class ChecklistItemDto {
                 .riskNote(i.getRiskNote())
                 .linkedRequirementId(i.getLinkedRequirementId())
                 .sourceExcerptId(i.getSourceExcerptId())
+                .ownerUserId(i.getOwnerUserId())
+                .actionComment(i.getActionComment())
                 .createdAt(i.getCreatedAt())
                 .updatedAt(i.getUpdatedAt())
                 .build();

@@ -57,4 +57,63 @@ public class RfpAnalysisResultItem {
 
     @JsonProperty("review_required_note")
     private String reviewRequiredNote;
+
+    // ── 심화 분석 필드 ────────────────────────────────────────────
+
+    @JsonProperty("proposal_point")
+    private String proposalPoint;
+
+    @JsonProperty("implementation_direction")
+    private String implementationDirection;
+
+    @JsonProperty("deliverables")
+    private String deliverables;
+
+    @JsonProperty("differentiation")
+    private String differentiation;
+
+    @JsonProperty("risk")
+    private String risk;
+
+    @JsonProperty("query_needed")
+    private Boolean queryNeeded;
+
+    @JsonProperty("mandatory")
+    private Boolean mandatory;
+
+    // ── 커버리지 매핑 ──────────────────────────────────────────
+
+    /** 원문 요구사항 번호 (쉼표 구분, e.g. "MAR-001, MAR-002") */
+    @JsonProperty("original_requirement_nos")
+    private String originalRequirementNos;
+
+    /** 추출 상태: SINGLE / MERGED / MISSING_CANDIDATE */
+    @JsonProperty("extraction_status")
+    private String extractionStatus;
+
+    /** 병합 사유 (MERGED일 때) */
+    @JsonProperty("merge_reason")
+    private String mergeReason;
+
+    // ── 심화 분석 추가 필드 ────────────────────────────────────
+
+    /** 발주처 의도 해석 */
+    @JsonProperty("interpretation")
+    private String interpretation;
+
+    /** 평가 시 중점 확인 사항 */
+    @JsonProperty("evaluation_focus")
+    private String evaluationFocus;
+
+    /** 필요 증빙/근거 자료 */
+    @JsonProperty("required_evidence")
+    private String requiredEvidence;
+
+    /** 제안서 초안 스니펫 (바로 복사 가능한 수준) */
+    @JsonProperty("draft_proposal_snippet")
+    private String draftProposalSnippet;
+
+    /** 발주처 질의 필요 사항 */
+    @JsonProperty("clarification_questions")
+    private String clarificationQuestions;
 }

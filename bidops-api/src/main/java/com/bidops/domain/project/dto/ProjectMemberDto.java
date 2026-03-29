@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @Builder
 public class ProjectMemberDto {
 
+    private String id;
+
     @JsonProperty("user_id")
     private String userId;
 
@@ -28,6 +30,7 @@ public class ProjectMemberDto {
 
     public static ProjectMemberDto from(ProjectMember m, String email, String name) {
         return ProjectMemberDto.builder()
+                .id(m.getId())
                 .userId(m.getUserId())
                 .projectRole(m.getProjectRole())
                 .userEmail(email)

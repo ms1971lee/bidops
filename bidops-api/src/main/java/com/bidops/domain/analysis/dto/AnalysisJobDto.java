@@ -43,6 +43,12 @@ public class AnalysisJobDto {
     @JsonProperty("result_count")
     private Integer resultCount;
 
+    @JsonProperty("retry_count")
+    private Integer retryCount;
+
+    @JsonProperty("max_retries")
+    private Integer maxRetries;
+
     public static AnalysisJobDto from(AnalysisJob j) {
         return AnalysisJobDto.builder()
                 .id(j.getId())
@@ -56,6 +62,8 @@ public class AnalysisJobDto {
                 .errorCode(j.getErrorCode())
                 .errorMessage(j.getErrorMessage())
                 .resultCount(j.getResultCount())
+                .retryCount(j.getRetryCount())
+                .maxRetries(j.getMaxRetries())
                 .build();
     }
 }

@@ -1,0 +1,125 @@
+{
+  "schema_version": "0.1",
+  "bundle_name": "bidops_intermediate_format",
+  "files": {
+    "normalized_markdown": {
+      "path": "normalized.md",
+      "purpose": "사람/AI 공용 텍스트 본문",
+      "required_fields": [
+        "document_id",
+        "project_id",
+        "title",
+        "document_type",
+        "version_no",
+        "page_count",
+        "source_file_name",
+        "expected_requirement_total",
+        "expected_requirement_breakdown"
+      ]
+    },
+    "block_index": {
+      "path": "block_index.json",
+      "purpose": "페이지/블록/좌표/조항 원장",
+      "page_fields": [
+        "page_no",
+        "text_source",
+        "ocr_confidence",
+        "blocks"
+      ],
+      "block_fields": [
+        "block_id",
+        "page_no",
+        "excerpt_type",
+        "section_path",
+        "clause_id",
+        "anchor_label",
+        "table_ref",
+        "list_index",
+        "raw_text",
+        "normalized_text",
+        "bbox_json",
+        "is_requirement_candidate",
+        "requirement_signals",
+        "source_rank"
+      ]
+    },
+    "requirement_catalog": {
+      "path": "requirement_catalog.json",
+      "purpose": "원문 기대 요구사항 기준표",
+      "fields": [
+        "expected_requirement_total",
+        "expected_breakdown",
+        "catalog_items"
+      ],
+      "catalog_item_fields": [
+        "original_requirement_no",
+        "group_code",
+        "sequence_no",
+        "original_title",
+        "original_category",
+        "page_no",
+        "clause_id",
+        "source_block_ids",
+        "status"
+      ]
+    },
+    "coverage_audit": {
+      "path": "coverage_audit.json",
+      "purpose": "누락/병합 감사",
+      "fields": [
+        "document_id",
+        "job_id",
+        "expected_count",
+        "catalog_detected_count",
+        "ai_extracted_count",
+        "saved_requirement_count",
+        "merged_count",
+        "missing_count",
+        "missing_requirement_nos",
+        "merged_groups",
+        "unmapped_extracted_items",
+        "notes",
+        "status"
+      ]
+    },
+    "ai_output": {
+      "path": "requirements_ai_output.json",
+      "purpose": "AI 구조화 분석 결과",
+      "requirement_fields": [
+        "requirement_code",
+        "original_requirement_nos",
+        "mapping_status",
+        "title",
+        "original_text",
+        "category",
+        "proposal_section_major",
+        "proposal_section_minor",
+        "mandatory_flag",
+        "evidence_required_flag",
+        "query_needed_flag",
+        "fact_basis",
+        "interpretation_summary",
+        "intent_summary",
+        "proposal_point",
+        "implementation_approach",
+        "expected_deliverables",
+        "differentiation_point",
+        "risk_note",
+        "fact_level",
+        "confidence_score",
+        "source_block_ids",
+        "page_refs"
+      ]
+    }
+  },
+  "enums": {
+    "text_extraction_mode": ["native", "ocr", "hybrid"],
+    "excerpt_type": ["PARAGRAPH", "TABLE", "LIST", "HEADER", "FOOTNOTE"],
+    "source_rank": ["PRIMARY", "SUPPORTING"],
+    "catalog_status": ["DETECTED", "UNCERTAIN", "MISSING_FROM_TEXT", "DERIVED_FROM_TABLE"],
+    "coverage_status": ["PASS", "REVIEW_NEEDED", "FAIL"],
+    "mapping_status": ["SINGLE", "MERGED", "MISSING_CANDIDATE", "REQUIRES_REVIEW"],
+    "proposal_section_major": ["개요", "기술부문", "관리부문", "지원부문", "기타"],
+    "fact_level": ["FACT", "INFERENCE", "REVIEW_NEEDED"]
+  }
+}

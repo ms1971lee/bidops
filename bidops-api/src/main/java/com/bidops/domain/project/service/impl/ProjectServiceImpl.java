@@ -2,12 +2,17 @@ package com.bidops.domain.project.service.impl;
 
 import com.bidops.common.exception.BidOpsException;
 import com.bidops.common.response.ListData;
+import com.bidops.common.util.SecurityUtils;
 import com.bidops.domain.project.dto.*;
 import com.bidops.domain.project.entity.Project;
 import com.bidops.domain.project.entity.ProjectMember;
+import com.bidops.domain.project.enums.ActivityType;
+import com.bidops.domain.project.enums.ProjectPermission;
 import com.bidops.domain.project.enums.ProjectStatus;
 import com.bidops.domain.project.repository.ProjectMemberRepository;
 import com.bidops.domain.project.repository.ProjectRepository;
+import com.bidops.domain.project.service.ProjectActivityService;
+import com.bidops.domain.project.service.ProjectAuthorizationService;
 import com.bidops.domain.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,9 +30,13 @@ public class ProjectServiceImpl implements ProjectService {
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository memberRepository;
+    private final ProjectAuthorizationService authorizationService;
+    private final ProjectActivityService activityService;
 
     @Override
     public ListData<ProjectDto> listProjects(String userId, String keyword, ProjectStatus status, int page, int size) {
+        String orgId = SecurityUtils.getCurrentOrganizationId();
+
         List<String> projectIds = memberRepository.findByUserId(userId)
                 .stream().map(ProjectMember::getProjectId).toList();
 
@@ -37,7 +46,8 @@ public class ProjectServiceImpl implements ProjectService {
 
         PageRequest pageable = PageRequest.of(page - 1, size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ProjectDto> result = projectRepository.searchByIds(projectIds, keyword, status, pageable)
+        Page<ProjectDto> result = projectRepository.searchByIdsAndOrganization(
+                        projectIds, orgId, keyword, status, pageable)
                 .map(ProjectDto::from);
         return new ListData<>(result.getContent(), result.getTotalElements());
     }
@@ -45,7 +55,9 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     public ProjectDto createProject(String userId, ProjectCreateRequest request) {
+        String orgId = SecurityUtils.getCurrentOrganizationId();
         Project project = Project.builder()
+                .organizationId(orgId)
                 .name(request.getName())
                 .clientName(request.getClientName())
                 .businessName(request.getBusinessName())
@@ -64,35 +76,38 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public ProjectDto getProject(String userId, String projectId) {
-        validateAccess(userId, projectId);
+        authorizationService.requirePermission(projectId, userId, ProjectPermission.PROJECT_VIEW);
         return ProjectDto.from(findOrThrow(projectId));
     }
 
     @Override
     @Transactional
     public ProjectDto updateProject(String userId, String projectId, ProjectUpdateRequest request) {
-        validateAccess(userId, projectId);
+        authorizationService.requirePermission(projectId, userId, ProjectPermission.PROJECT_EDIT);
         Project project = findOrThrow(projectId);
         project.update(request.getName(), request.getClientName(),
                        request.getBusinessName(), request.getDescription());
+        activityService.record(projectId, ActivityType.PROJECT_UPDATED,
+                "프로젝트 수정: " + project.getName(),
+                userId, projectId, "project", null);
         return ProjectDto.from(project);
     }
 
     @Override
     @Transactional
     public ProjectDto changeProjectStatus(String userId, String projectId, ProjectStatusChangeRequest request) {
-        validateAccess(userId, projectId);
+        authorizationService.requirePermission(projectId, userId, ProjectPermission.PROJECT_EDIT);
         Project project = findOrThrow(projectId);
         project.changeStatus(request.getStatus());
+        activityService.record(projectId, ActivityType.PROJECT_UPDATED,
+                "프로젝트 상태 변경: " + request.getStatus(),
+                userId, projectId, "project", request.getStatus().name());
         return ProjectDto.from(project);
     }
 
     @Override
     public void validateAccess(String userId, String projectId) {
-        findOrThrow(projectId);
-        if (!memberRepository.existsByProjectIdAndUserId(projectId, userId)) {
-            throw BidOpsException.forbidden();
-        }
+        authorizationService.requireMembership(projectId, userId);
     }
 
     private Project findOrThrow(String projectId) {

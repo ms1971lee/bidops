@@ -57,8 +57,10 @@ public class ChecklistController {
             @RequestParam(required = false) ChecklistItemStatus status,
             @RequestParam(name = "risk_level", required = false) RiskLevel riskLevel,
             @RequestParam(required = false) Boolean mandatory,
-            @RequestParam(name = "requirement_id", required = false) String requirementId) {
-        return ApiResponse.ok(checklistService.listItems(checklistId, status, riskLevel, mandatory, requirementId));
+            @RequestParam(name = "requirement_id", required = false) String requirementId,
+            @RequestParam(name = "owner_user_id", required = false) String ownerUserId,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(checklistService.listItems(projectId, checklistId, status, riskLevel, mandatory, requirementId, ownerUserId, keyword));
     }
 
     @PostMapping("/{checklistId}/items")
@@ -68,7 +70,7 @@ public class ChecklistController {
             @PathVariable String projectId,
             @PathVariable String checklistId,
             @RequestBody @Valid ChecklistItemCreateRequest request) {
-        return ApiResponse.ok(checklistService.createItem(checklistId, request));
+        return ApiResponse.ok(checklistService.createItem(projectId, checklistId, request));
     }
 
     @GetMapping("/{checklistId}/items/{itemId}")
@@ -77,7 +79,7 @@ public class ChecklistController {
             @PathVariable String projectId,
             @PathVariable String checklistId,
             @PathVariable String itemId) {
-        return ApiResponse.ok(checklistService.getItem(checklistId, itemId));
+        return ApiResponse.ok(checklistService.getItem(projectId, checklistId, itemId));
     }
 
     @PatchMapping("/{checklistId}/items/{itemId}")
@@ -87,7 +89,7 @@ public class ChecklistController {
             @PathVariable String checklistId,
             @PathVariable String itemId,
             @RequestBody @Valid ChecklistItemUpdateRequest request) {
-        return ApiResponse.ok(checklistService.updateItem(checklistId, itemId, request));
+        return ApiResponse.ok(checklistService.updateItem(projectId, checklistId, itemId, request));
     }
 
     @PostMapping("/{checklistId}/items/{itemId}/status")
@@ -97,6 +99,16 @@ public class ChecklistController {
             @PathVariable String checklistId,
             @PathVariable String itemId,
             @RequestBody @Valid ChecklistItemStatusChangeRequest request) {
-        return ApiResponse.ok(checklistService.changeItemStatus(checklistId, itemId, request));
+        return ApiResponse.ok(checklistService.changeItemStatus(projectId, checklistId, itemId, request));
+    }
+
+    @GetMapping("/{checklistId}/items/{itemId}/reviews")
+    @Operation(summary = "체크리스트 항목 조치 이력", operationId = "listChecklistItemReviews")
+    public ApiResponse<List<ChecklistReviewDto>> listReviews(
+            @PathVariable String projectId,
+            @PathVariable String checklistId,
+            @PathVariable String itemId,
+            @RequestParam(defaultValue = "0") int limit) {
+        return ApiResponse.ok(checklistService.listReviews(projectId, checklistId, itemId, limit));
     }
 }

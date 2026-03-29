@@ -95,4 +95,21 @@ public class DocumentController {
         List<DocumentDto> items = documentService.listVersions(projectId, documentId);
         return ApiResponse.ok(new ListData<>(items, items.size()));
     }
+
+    /**
+     * PATCH /projects/{projectId}/documents/{documentId}/parse-status
+     * operationId: updateDocumentParseStatus
+     * AI 워커 콜백용.
+     */
+    @PatchMapping("/{documentId}/parse-status")
+    @Operation(summary = "문서 파싱 상태 업데이트 (워커 콜백)", operationId = "updateDocumentParseStatus")
+    public ApiResponse<DocumentDto> updateParseStatus(
+            @PathVariable String projectId,
+            @PathVariable String documentId,
+            @RequestBody java.util.Map<String, Object> body) {
+
+        DocumentParseStatus status = DocumentParseStatus.valueOf((String) body.get("status"));
+        Integer pageCount = body.get("page_count") != null ? ((Number) body.get("page_count")).intValue() : null;
+        return ApiResponse.ok(documentService.updateParseStatus(projectId, documentId, status, pageCount));
+    }
 }

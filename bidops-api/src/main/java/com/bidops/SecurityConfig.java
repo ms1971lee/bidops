@@ -26,7 +26,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/actuator/health",
-            "/api/v1/auth/login"
+            "/api/v1/auth/login",
+            "/api/v1/auth/signup"
     };
 
     @Value("${spring.profiles.active:}")
@@ -57,6 +58,9 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s ->
                     s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(headers -> headers
+                    .frameOptions(frame -> frame.sameOrigin())
+            )
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(paths.toArray(String[]::new)).permitAll()
                     .anyRequest().authenticated()

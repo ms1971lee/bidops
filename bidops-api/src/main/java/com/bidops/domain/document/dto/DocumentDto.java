@@ -41,6 +41,10 @@ public class DocumentDto {
     @JsonProperty("uploaded_at")
     private LocalDateTime uploadedAt;
 
+    /** 문서 전체 페이지 수 (파싱 완료 후 값이 채워짐, nullable) */
+    @JsonProperty("page_count")
+    private Integer pageCount;
+
     /** 프론트에서 PDF를 표시할 때 사용하는 URL */
     @JsonProperty("viewer_url")
     private String viewerUrl;
@@ -61,6 +65,7 @@ public class DocumentDto {
                 .parseStatus(d.getParseStatus())
                 .uploadedBy(d.getUploadedBy())
                 .uploadedAt(d.getCreatedAt())
+                .pageCount(d.getPageCount())
                 .viewerUrl(viewerUrl)
                 .build();
     }

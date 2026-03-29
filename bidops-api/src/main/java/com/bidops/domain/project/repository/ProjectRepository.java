@@ -38,4 +38,19 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
             @Param("keyword") String keyword,
             @Param("status")  ProjectStatus status,
             Pageable pageable);
+
+    @Query("""
+            SELECT p FROM Project p
+            WHERE p.deleted = false
+              AND p.id IN :ids
+              AND (:orgId IS NULL OR p.organizationId = :orgId)
+              AND (:keyword IS NULL OR p.name LIKE %:keyword% OR p.clientName LIKE %:keyword%)
+              AND (:status  IS NULL OR p.status = :status)
+            """)
+    Page<Project> searchByIdsAndOrganization(
+            @Param("ids")     List<String> ids,
+            @Param("orgId")   String orgId,
+            @Param("keyword") String keyword,
+            @Param("status")  ProjectStatus status,
+            Pageable pageable);
 }

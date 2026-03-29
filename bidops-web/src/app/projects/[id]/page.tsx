@@ -1,41 +1,457 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { documentApi, analysisJobApi, requirementApi, checklistApi, inquiryApi } from "@/lib/api";
+import { useProjectRole } from "@/lib/useProjectRole";
+import StatusBadge from "@/components/common/StatusBadge";
 
-export default function ProjectOverview() {
+interface Stats {
+  docs: number;
+  docsParsing: number;
+  docsFailed: number;
+  totalReqs: number;
+  notReviewed: number;
+  inReview: number;
+  approved: number;
+  hold: number;
+  needsUpdate: number;
+  queryNeeded: number;
+  mandatoryNotDone: number;
+  highRiskItems: number;
+  totalChecklistItems: number;
+  doneChecklistItems: number;
+  inquiries: number;
+}
+
+const EMPTY: Stats = {
+  docs: 0, docsParsing: 0, docsFailed: 0,
+  totalReqs: 0, notReviewed: 0, inReview: 0, approved: 0, hold: 0, needsUpdate: 0,
+  queryNeeded: 0, mandatoryNotDone: 0, highRiskItems: 0, totalChecklistItems: 0, doneChecklistItems: 0, inquiries: 0,
+};
+
+export default function AnalysisDashboard() {
   const { id } = useParams() as { id: string };
-  const [stats, setStats] = useState({ docs: 0, reqs: 0, checklists: 0, inquiries: 0, jobs: 0 });
+  const { role, isOwner, loading: roleLoading } = useProjectRole(id);
 
-  useEffect(() => {
+  const [stats, setStats] = useState<Stats>(EMPTY);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [recentReviewed, setRecentReviewed] = useState<any[]>([]);
+  const [queryItems, setQueryItems] = useState<any[]>([]);
+  const [highRiskList, setHighRiskList] = useState<any[]>([]);
+  const [needsReviewItems, setNeedsReviewItems] = useState<any[]>([]);
+  const [previewTab, setPreviewTab] = useState<"review" | "checklist" | "query">("review");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadData = () => {
+    setLoading(true);
+    setError("");
     Promise.all([
-      documentApi.list(id).then((d) => d.items?.length || 0).catch(() => 0),
-      requirementApi.list(id).then((d) => d.total_count || 0).catch(() => 0),
-      checklistApi.list(id).then((d) => d?.length || 0).catch(() => 0),
-      inquiryApi.list(id).then((d) => d?.length || 0).catch(() => 0),
-      analysisJobApi.list(id).then((d) => d.items?.length || 0).catch(() => 0),
-    ]).then(([docs, reqs, checklists, inquiries, jobs]) =>
-      setStats({ docs, reqs, checklists, inquiries, jobs })
-    );
-  }, [id]);
+      // docs
+      documentApi.list(id).then((d) => d.items || []).catch(() => []),
+      // all requirements (use large page to get counts)
+      requirementApi.list(id, "size=500").catch(() => ({ items: [], total_count: 0 })),
+      // checklists with items
+      checklistApi.list(id).catch(() => []),
+      // inquiries
+      inquiryApi.list(id).catch(() => []),
+      // analysis jobs
+      analysisJobApi.list(id).catch(() => ({ items: [] })),
+      // query needed requirements
+      requirementApi.list(id, "query_needed=true&size=10").catch(() => ({ items: [] })),
+      // recently reviewed
+      requirementApi.list(id, "review_status=APPROVED&size=5").catch(() => ({ items: [] })),
+      // needs review (NOT_REVIEWED + IN_REVIEW)
+      requirementApi.list(id, "review_status=NOT_REVIEWED&size=10").catch(() => ({ items: [] })),
+    ]).then(async ([docsArr, reqData, checklists, inquiries, jobsData, queryData, reviewedData, needsReviewData]) => {
+      const docItems = docsArr as any[];
+      const docs = docItems.length;
+      const docsParsing = docItems.filter((d: any) => d.parse_status === "PARSING").length;
+      const docsFailed = docItems.filter((d: any) => d.parse_status === "FAILED").length;
 
-  const cards = [
-    { label: "문서", value: stats.docs },
-    { label: "요구사항", value: stats.reqs },
-    { label: "체크리스트", value: stats.checklists },
-    { label: "질의", value: stats.inquiries },
-    { label: "분석 Job", value: stats.jobs },
-  ];
+      const reqs = (reqData as any).items || [];
+      const totalReqs = (reqData as any).total_count || reqs.length;
+
+      // count review statuses
+      const notReviewed = reqs.filter((r: any) => r.review_status === "NOT_REVIEWED").length;
+      const inReview = reqs.filter((r: any) => r.review_status === "IN_REVIEW").length;
+      const approved = reqs.filter((r: any) => r.review_status === "APPROVED").length;
+      const hold = reqs.filter((r: any) => r.review_status === "HOLD").length;
+      const needsUpdate = reqs.filter((r: any) => r.review_status === "NEEDS_UPDATE").length;
+      const queryNeeded = reqs.filter((r: any) => r.query_needed).length;
+
+      // checklist stats: load items for each checklist to get high-risk + mandatory stats
+      const cls = checklists as any[];
+      let mandatoryNotDone = 0;
+      let highRiskItems = 0;
+      let totalChecklistItems = 0;
+      let doneChecklistItems = 0;
+      const highRiskAll: any[] = [];
+
+      await Promise.all(cls.map(async (cl: any) => {
+        const items = await checklistApi.items(id, cl.id).catch(() => []);
+        (items as any[]).forEach((item: any) => {
+          totalChecklistItems++;
+          if (item.current_status === "DONE") doneChecklistItems++;
+          if (item.mandatory_flag && item.current_status !== "DONE") mandatoryNotDone++;
+          if (item.risk_level === "HIGH") {
+            highRiskItems++;
+            highRiskAll.push({ ...item, checklist_title: cl.title });
+          }
+        });
+      }));
+
+      setStats({
+        docs, docsParsing, docsFailed,
+        totalReqs, notReviewed, inReview, approved, hold, needsUpdate, queryNeeded,
+        mandatoryNotDone, highRiskItems, totalChecklistItems, doneChecklistItems,
+        inquiries: (inquiries as any[]).length,
+      });
+
+      setJobs((jobsData as any).items || []);
+      setQueryItems((queryData as any).items || []);
+      setRecentReviewed((reviewedData as any).items || []);
+      setHighRiskList(highRiskAll.slice(0, 10));
+      setNeedsReviewItems((needsReviewData as any).items || []);
+    }).catch((e) => {
+      setError(e.code === "FORBIDDEN" ? "이 프로젝트에 접근할 권한이 없습니다." : (e.message || "데이터를 불러올 수 없습니다."));
+    }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadData(); }, [id]);
+
+  if (loading) {
+    return <div className="text-center text-gray-400 py-12">분석 대시보드 로딩 중...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-6 rounded text-center" role="alert">
+        <div className="mb-2">{error}</div>
+        <button onClick={loadData} className="text-xs text-red-600 hover:underline font-medium">다시 시도</button>
+      </div>
+    );
+  }
+
+  if (!roleLoading && !role) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center text-sm text-yellow-800">
+        이 프로젝트에 접근할 권한이 없습니다. 프로젝트 소유자에게 멤버 초대를 요청하세요.
+      </div>
+    );
+  }
+
+  // active/recent jobs
+  const activeJobs = jobs.filter((j) => j.status === "PENDING" || j.status === "RUNNING");
+  const failedJobs = jobs.filter((j) => j.status === "FAILED");
+  const reviewPct = stats.totalReqs > 0 ? Math.round((stats.approved / stats.totalReqs) * 100) : 0;
+  const checklistPct = stats.totalChecklistItems > 0 ? Math.round((stats.doneChecklistItems / stats.totalChecklistItems) * 100) : 0;
 
   return (
-    <div className="grid grid-cols-5 gap-4">
-      {cards.map((c) => (
-        <div key={c.label} className="bg-white rounded border p-4 text-center">
-          <div className="text-2xl font-bold">{c.value}</div>
-          <div className="text-sm text-gray-500 mt-1">{c.label}</div>
+    <div className="space-y-6">
+      {/* ── 상단: 핵심 지표 카드 ─────────────────────────────────────── */}
+      <div className="grid grid-cols-5 gap-3">
+        <Link href={`/projects/${id}/requirements`}>
+          <StatCard label="요구사항" value={stats.totalReqs}
+            sub={`승인 ${stats.approved} / 미검토 ${stats.notReviewed}`}
+            color="bg-blue-50 text-blue-700 hover:ring-2 hover:ring-blue-200" />
+        </Link>
+        <StatCard label="검토 진행률" value={`${reviewPct}%`}
+          sub={`${stats.approved}/${stats.totalReqs} 승인`}
+          color="bg-green-50 text-green-700"
+          bar={reviewPct} barColor="bg-green-500" />
+        <Link href={`/projects/${id}/checklists`}>
+          <StatCard label="체크리스트" value={`${checklistPct}%`}
+            sub={`${stats.doneChecklistItems}/${stats.totalChecklistItems} 완료`}
+            color="bg-purple-50 text-purple-700 hover:ring-2 hover:ring-purple-200"
+            bar={checklistPct} barColor="bg-purple-500" />
+        </Link>
+        <Link href={`/projects/${id}/documents`}>
+          <StatCard label="문서" value={stats.docs}
+            sub={stats.docsFailed > 0 ? `실패 ${stats.docsFailed}` : stats.docsParsing > 0 ? `파싱 중 ${stats.docsParsing}` : "정상"}
+            color={stats.docsFailed > 0 ? "bg-red-50 text-red-700 hover:ring-2 hover:ring-red-200" : "bg-gray-50 text-gray-700 hover:ring-2 hover:ring-gray-200"} />
+        </Link>
+        <Link href={`/projects/${id}/inquiries`}>
+          <StatCard label="질의" value={stats.inquiries}
+            sub={stats.queryNeeded > 0 ? `질의 필요 ${stats.queryNeeded}` : "질의 없음"}
+            color={stats.queryNeeded > 0 ? "bg-orange-50 text-orange-700 hover:ring-2 hover:ring-orange-200" : "bg-gray-50 text-gray-700 hover:ring-2 hover:ring-gray-200"} />
+        </Link>
+      </div>
+
+      {/* ── 시작 안내 (요구사항이 없을 때) ───────────────────────────── */}
+      {stats.totalReqs === 0 && stats.docs === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+          <div className="font-semibold mb-1">프로젝트 시작하기</div>
+          <div className="text-blue-600">
+            1. <Link href={`/projects/${id}/documents`} className="underline">문서 탭</Link>에서 RFP PDF를 업로드하세요.{" "}
+            2. 업로드 후 분석을 시작하면 요구사항이 자동 추출됩니다.
+          </div>
         </div>
-      ))}
+      )}
+      {stats.totalReqs === 0 && stats.docs > 0 && jobs.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+          <div className="font-semibold mb-1">분석 대기 중</div>
+          <div className="text-yellow-600">
+            문서가 업로드되었습니다. <Link href={`/projects/${id}/documents`} className="underline">문서 탭</Link>에서 분석을 시작하세요.
+          </div>
+        </div>
+      )}
+
+      {/* ── 경고 배너 (누락/위험 항목이 있을 때만) ───────────────────── */}
+      {(stats.mandatoryNotDone > 0 || stats.highRiskItems > 0 || stats.queryNeeded > 0 || stats.needsUpdate > 0) && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="text-sm font-semibold text-red-700 mb-2">주의 필요 항목</div>
+          <div className="flex gap-4 flex-wrap text-sm">
+            {stats.mandatoryNotDone > 0 && (
+              <Link href={`/projects/${id}/checklists`}
+                className="flex items-center gap-1 text-red-700 hover:underline">
+                <span className="w-2 h-2 bg-red-500 rounded-full" />
+                필수 미완료 체크리스트 {stats.mandatoryNotDone}건
+              </Link>
+            )}
+            {stats.highRiskItems > 0 && (
+              <Link href={`/projects/${id}/checklists`}
+                className="flex items-center gap-1 text-orange-700 hover:underline">
+                <span className="w-2 h-2 bg-orange-500 rounded-full" />
+                고위험 항목 {stats.highRiskItems}건
+              </Link>
+            )}
+            {stats.queryNeeded > 0 && (
+              <Link href={`/projects/${id}/requirements?query_needed=true`}
+                className="flex items-center gap-1 text-yellow-700 hover:underline">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full" />
+                질의 필요 {stats.queryNeeded}건
+              </Link>
+            )}
+            {stats.needsUpdate > 0 && (
+              <Link href={`/projects/${id}/requirements?review_status=NEEDS_UPDATE`}
+                className="flex items-center gap-1 text-red-600 hover:underline">
+                <span className="w-2 h-2 bg-red-400 rounded-full" />
+                수정 필요 {stats.needsUpdate}건
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── 중단: 검토 상태 분포 + 분석 Job 상태 ────────────────────── */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* 사람 검토 상태 분포 */}
+        <div className="bg-white rounded border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">사람 검토 현황</h3>
+            <Link href={`/projects/${id}/requirements`} className="text-xs text-blue-600 hover:underline">
+              요구사항 전체 보기
+            </Link>
+          </div>
+          <div className="space-y-2">
+            <ReviewBar label="미검토" count={stats.notReviewed} total={stats.totalReqs}
+              color="bg-gray-400" href={`/projects/${id}/requirements?review_status=NOT_REVIEWED`} />
+            <ReviewBar label="검토중" count={stats.inReview} total={stats.totalReqs}
+              color="bg-yellow-400" href={`/projects/${id}/requirements?review_status=IN_REVIEW`} />
+            <ReviewBar label="승인" count={stats.approved} total={stats.totalReqs}
+              color="bg-green-500" href={`/projects/${id}/requirements?review_status=APPROVED`} />
+            <ReviewBar label="보류" count={stats.hold} total={stats.totalReqs}
+              color="bg-orange-400" href={`/projects/${id}/requirements?review_status=HOLD`} />
+            <ReviewBar label="수정필요" count={stats.needsUpdate} total={stats.totalReqs}
+              color="bg-red-500" href={`/projects/${id}/requirements?review_status=NEEDS_UPDATE`} />
+          </div>
+        </div>
+
+        {/* AI 분석 Job 상태 */}
+        <div className="bg-white rounded border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">AI 분석 상태</h3>
+            {isOwner && (
+              <Link href={`/projects/${id}/documents`}
+                className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                분석 시작
+              </Link>
+            )}
+          </div>
+
+          {activeJobs.length > 0 && (
+            <div className="mb-3">
+              {activeJobs.map((j) => (
+                <div key={j.id} className="flex items-center gap-2 bg-blue-50 rounded px-3 py-2 mb-1 text-sm">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <span className="font-mono text-xs">{j.job_type}</span>
+                  <StatusBadge value={j.status} />
+                  {j.status === "RUNNING" && <span className="text-xs text-gray-400">분석 진행 중...</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {failedJobs.length > 0 && (
+            <div className="mb-3">
+              {failedJobs.map((j) => (
+                <div key={j.id} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded px-3 py-2 mb-1 text-sm">
+                  <span className="text-red-500 text-xs font-bold">실패</span>
+                  <span className="font-mono text-xs">{j.job_type}</span>
+                  <StatusBadge value="FAILED" />
+                  {j.error_message && <span className="text-xs text-red-500 truncate flex-1">{j.error_message}</span>}
+                  {isOwner && (
+                    <Link href={`/projects/${id}/documents`}
+                      className="text-xs text-blue-600 hover:underline ml-auto shrink-0">재시도</Link>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {jobs.length > 0 ? (
+            <div className="space-y-1 text-sm">
+              {jobs.slice(0, 5).map((j) => (
+                <div key={j.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-gray-500">{j.job_type}</span>
+                    <StatusBadge value={j.status} />
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {j.created_at ? new Date(j.created_at).toLocaleDateString("ko-KR") : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400 py-4 text-center">
+              분석 Job이 없습니다.
+              {isOwner && " 문서 탭에서 분석을 시작하세요."}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 하단: 미리보기 탭 ──────────────────────────────────────────── */}
+      <div className="bg-white rounded border">
+        <div className="flex border-b">
+          {([
+            { key: "review" as const, label: "검토 필요", count: stats.notReviewed + stats.needsUpdate },
+            { key: "checklist" as const, label: "누락 위험", count: stats.mandatoryNotDone + stats.highRiskItems },
+            { key: "query" as const, label: "질의 필요", count: stats.queryNeeded },
+          ]).map((t) => (
+            <button key={t.key} onClick={() => setPreviewTab(t.key)}
+              className={`px-4 py-2.5 text-sm border-b-2 transition-colors ${
+                previewTab === t.key ? "border-blue-600 text-blue-600 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              {t.label} {t.count > 0 && <span className="ml-1 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">{t.count}</span>}
+            </button>
+          ))}
+          {role && (
+            <div className="ml-auto flex items-center gap-2 px-4 text-sm text-gray-400">
+              <StatusBadge value={role} />
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 max-h-64 overflow-auto">
+          {previewTab === "review" && (
+            <div className="space-y-1.5">
+              {needsReviewItems.length > 0 ? needsReviewItems.map((r: any) => (
+                <Link key={r.id} href={`/projects/${id}/requirements/${r.id}?tab=review`}
+                  className="flex items-center gap-2 bg-gray-50 rounded px-3 py-2 text-sm hover:bg-blue-50 transition-colors">
+                  <span className="font-mono text-xs text-gray-500">{r.requirement_code}</span>
+                  <span className="truncate flex-1 text-xs">{r.title}</span>
+                  <StatusBadge value={r.review_status || "NOT_REVIEWED"} />
+                  <StatusBadge value={r.fact_level || "REVIEW_NEEDED"} />
+                </Link>
+              )) : (
+                <div className="text-xs text-gray-400 text-center py-6">검토 필요 항목 없음</div>
+              )}
+              {stats.notReviewed > needsReviewItems.length && (
+                <Link href={`/projects/${id}/requirements?review_status=NOT_REVIEWED`}
+                  className="block text-xs text-blue-600 hover:underline text-center pt-2">
+                  미검토 {stats.notReviewed}건 전체 보기
+                </Link>
+              )}
+            </div>
+          )}
+
+          {previewTab === "checklist" && (
+            <div className="space-y-1.5">
+              {highRiskList.length > 0 ? highRiskList.map((item: any) => (
+                <div key={item.id} className="flex items-center gap-2 bg-red-50 rounded px-3 py-2 text-sm">
+                  <span className="font-mono text-xs text-red-600">{item.item_code}</span>
+                  <span className="truncate flex-1 text-xs">{item.item_text}</span>
+                  <StatusBadge value={item.risk_level} />
+                  <StatusBadge value={item.current_status} />
+                  {item.mandatory_flag && <span className="text-[10px] text-red-600 font-bold">필수</span>}
+                  {item.linked_requirement_id && (
+                    <Link href={`/projects/${id}/requirements/${item.linked_requirement_id}`}
+                      className="text-[10px] text-blue-600 hover:underline shrink-0">요구사항</Link>
+                  )}
+                </div>
+              )) : (
+                <div className="text-xs text-gray-400 text-center py-6">누락 위험 항목 없음</div>
+              )}
+              <Link href={`/projects/${id}/checklists`}
+                className="block text-xs text-blue-600 hover:underline text-center pt-2">
+                체크리스트 전체 보기
+              </Link>
+            </div>
+          )}
+
+          {previewTab === "query" && (
+            <div className="space-y-1.5">
+              {queryItems.length > 0 ? queryItems.map((r: any) => (
+                <Link key={r.id} href={`/projects/${id}/requirements/${r.id}`}
+                  className="flex items-center gap-2 bg-orange-50 rounded px-3 py-2 text-sm hover:bg-orange-100 transition-colors">
+                  <span className="font-mono text-xs text-orange-600">{r.requirement_code}</span>
+                  <span className="truncate flex-1 text-xs">{r.title}</span>
+                  <StatusBadge value={r.fact_level || "REVIEW_NEEDED"} />
+                </Link>
+              )) : (
+                <div className="text-xs text-gray-400 text-center py-6">질의 필요 항목 없음</div>
+              )}
+              <Link href={`/projects/${id}/inquiries`}
+                className="block text-xs text-blue-600 hover:underline text-center pt-2">
+                질의응답 전체 보기
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+// ── Stat Card ────────────────────────────────────────────────────────
+function StatCard({ label, value, sub, color, bar, barColor }: {
+  label: string; value: string | number; sub: string; color: string;
+  bar?: number; barColor?: string;
+}) {
+  return (
+    <div className={`rounded-lg border p-4 transition-all ${color}`}>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-sm font-medium mt-0.5">{label}</div>
+      <div className="text-xs opacity-70 mt-1">{sub}</div>
+      {bar !== undefined && (
+        <div className="w-full bg-white/50 rounded h-1.5 mt-2">
+          <div className={`h-1.5 rounded transition-all ${barColor}`}
+            style={{ width: `${Math.min(bar, 100)}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Review Status Bar ────────────────────────────────────────────────
+function ReviewBar({ label, count, total, color, href }: {
+  label: string; count: number; total: number; color: string; href: string;
+}) {
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  return (
+    <Link href={href} className="flex items-center gap-2 group hover:bg-gray-50 rounded px-1 py-0.5 transition-colors">
+      <span className="text-xs text-gray-600 w-14">{label}</span>
+      <div className="flex-1 bg-gray-100 rounded h-2">
+        <div className={`h-2 rounded transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-gray-500 w-16 text-right group-hover:text-blue-600">
+        {count}건 ({pct.toFixed(0)}%)
+      </span>
+    </Link>
   );
 }

@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/analysis-jobs")
-@RequiredArgsConstructor
 @Tag(name = "AnalysisJobs")
 public class AnalysisJobController {
 
@@ -63,5 +62,65 @@ public class AnalysisJobController {
             @PathVariable String jobId) {
 
         return ApiResponse.ok(analysisJobService.getJob(projectId, jobId));
+    }
+
+    // ── 워커 콜백 엔드포인트 ──────────────────────────────────────────
+
+    @PostMapping("/{jobId}/start")
+    @Operation(summary = "Job 시작 (워커 콜백)", operationId = "startAnalysisJob")
+    public ApiResponse<AnalysisJobDto> startJob(
+            @PathVariable String projectId,
+            @PathVariable String jobId) {
+        return ApiResponse.ok(analysisJobService.startJob(projectId, jobId));
+    }
+
+    @PostMapping("/{jobId}/complete")
+    @Operation(summary = "Job 완료 (워커 콜백)", operationId = "completeAnalysisJob")
+    public ApiResponse<AnalysisJobDto> completeJob(
+            @PathVariable String projectId,
+            @PathVariable String jobId,
+            @RequestBody java.util.Map<String, Object> body) {
+        int resultCount = body.containsKey("result_count") ? ((Number) body.get("result_count")).intValue() : 0;
+        return ApiResponse.ok(analysisJobService.completeJob(projectId, jobId, resultCount));
+    }
+
+    @PostMapping("/{jobId}/fail")
+    @Operation(summary = "Job 실패 (워커 콜백)", operationId = "failAnalysisJob")
+    public ApiResponse<AnalysisJobDto> failJob(
+            @PathVariable String projectId,
+            @PathVariable String jobId,
+            @RequestBody java.util.Map<String, String> body) {
+        return ApiResponse.ok(analysisJobService.failJob(projectId, jobId,
+                body.getOrDefault("error_code", "UNKNOWN"),
+                body.getOrDefault("error_message", "알 수 없는 오류")));
+    }
+
+    @PostMapping("/{jobId}/retry")
+    @Operation(summary = "Job 수동 재시도", operationId = "retryAnalysisJob")
+    public ApiResponse<AnalysisJobDto> retryJob(
+            @PathVariable String projectId,
+            @PathVariable String jobId) {
+        return ApiResponse.ok(analysisJobService.retryJob(projectId, jobId));
+    }
+
+    /**
+     * GET /projects/{projectId}/analysis-jobs/coverage
+     * 최신 커버리지 감사 결과 조회
+     */
+    @GetMapping("/coverage")
+    @Operation(summary = "커버리지 감사 결과 조회", operationId = "getCoverageAudit")
+    public ApiResponse<com.bidops.domain.analysis.entity.CoverageAudit> getCoverageAudit(
+            @PathVariable String projectId,
+            @RequestParam(name = "document_id") String documentId) {
+        return ApiResponse.ok(coverageAuditRepository.findTopByDocumentIdOrderByCreatedAtDesc(documentId)
+                .orElse(null));
+    }
+
+    private final com.bidops.domain.analysis.repository.CoverageAuditRepository coverageAuditRepository;
+
+    public AnalysisJobController(AnalysisJobService analysisJobService,
+                                  com.bidops.domain.analysis.repository.CoverageAuditRepository coverageAuditRepository) {
+        this.analysisJobService = analysisJobService;
+        this.coverageAuditRepository = coverageAuditRepository;
     }
 }

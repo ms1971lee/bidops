@@ -85,6 +85,66 @@ public class Requirement extends BaseEntity {
     @Builder.Default
     private boolean queryNeeded = false;
 
+    // ── 추출 커버리지 필드 ──────────────────────────────────────────────────────
+
+    /** 원문 요구사항 번호 목록 (JSON array, e.g. ["MAR-001","MAR-002"]) */
+    @Column(name = "original_req_nos", columnDefinition = "TEXT")
+    private String originalReqNos;
+
+    /** 추출 상태: SINGLE(1:1), MERGED(N:1 병합), MISSING_CANDIDATE(누락의심) */
+    @Column(name = "extraction_status", length = 30)
+    @Builder.Default
+    private String extractionStatus = "SINGLE";
+
+    /** 병합 사유 */
+    @Column(name = "merge_reason", columnDefinition = "TEXT")
+    private String mergeReason;
+
+    // ── 분석 엔진 v2 상태축 ────────────────────────────────────────────────────
+
+    /** 원문 조항 참조 (SourceExcerpt.anchorLabel 조회 편의용, FK 아님) */
+    @Column(name = "source_clause_id", length = 50)
+    private String sourceClauseId;
+
+    /** atomic requirement 여부 */
+    @Column(name = "atomic_flag")
+    @Builder.Default
+    private boolean atomicFlag = true;
+
+    /** 추출 상태 (DETECTED → SPLIT → EXTRACTION_FAILED) */
+    @Column(name = "extraction_status_v2", length = 20)
+    @Builder.Default
+    private String extractionStatusV2 = "DETECTED";
+
+    /** 심화 분석 상태 (PENDING → ENRICHED → ENRICHMENT_FAILED → SKIPPED) */
+    @Setter
+    @Column(name = "enrichment_status", length = 20)
+    @Builder.Default
+    private String enrichmentStatus = "PENDING";
+
+    /** 품질 게이트 상태 (PENDING → PASS → WARN → FAIL) */
+    @Setter
+    @Column(name = "quality_gate_status", length = 20)
+    @Builder.Default
+    private String qualityGateStatus = "PENDING";
+
+    /** 분석 Job 버전 (재분석 시 증가) */
+    @Column(name = "analysis_job_version")
+    @Builder.Default
+    private int analysisJobVersion = 1;
+
+    /** 아카이브 여부 (재분석 시 이전 결과 보존) */
+    @Setter
+    @Column(name = "archived")
+    @Builder.Default
+    private boolean archived = false;
+
+    /** 목록 표시 여부 (QG 실패 시 false) */
+    @Setter
+    @Column(name = "visible")
+    @Builder.Default
+    private boolean visible = true;
+
     // ── 변경 메서드 ────────────────────────────────────────────────────────────
     public void update(String title, RequirementCategory category,
                        Boolean mandatoryFlag, Boolean evidenceRequiredFlag,

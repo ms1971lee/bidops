@@ -4,6 +4,7 @@ import com.bidops.common.response.ApiResponse;
 import com.bidops.domain.inquiry.dto.*;
 import com.bidops.domain.inquiry.enums.InquiryPriority;
 import com.bidops.domain.inquiry.enums.InquiryStatus;
+import com.bidops.domain.inquiry.service.InquiryGenerateService;
 import com.bidops.domain.inquiry.service.InquiryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,6 +22,7 @@ import java.util.List;
 public class InquiryController {
 
     private final InquiryService inquiryService;
+    private final InquiryGenerateService generateService;
 
     @GetMapping
     @Operation(summary = "질의 목록 조회", operationId = "listInquiries")
@@ -65,5 +67,12 @@ public class InquiryController {
             @PathVariable String inquiryId,
             @RequestBody @Valid InquiryStatusChangeRequest request) {
         return ApiResponse.ok(inquiryService.changeStatus(projectId, inquiryId, request));
+    }
+
+    @PostMapping("/generate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "질의 초안 일괄 생성", operationId = "generateInquiries")
+    public ApiResponse<InquiryGenerateResponse> generate(@PathVariable String projectId) {
+        return ApiResponse.ok(generateService.generate(projectId));
     }
 }

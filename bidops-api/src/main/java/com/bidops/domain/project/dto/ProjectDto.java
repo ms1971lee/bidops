@@ -14,6 +14,10 @@ import java.time.LocalDateTime;
 public class ProjectDto {
 
     private String id;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
     private String name;
 
     @JsonProperty("client_name")
@@ -37,6 +41,7 @@ public class ProjectDto {
     public static ProjectDto from(Project p) {
         return ProjectDto.builder()
                 .id(p.getId())
+                .organizationId(p.getOrganizationId())
                 .name(p.getName())
                 .clientName(p.getClientName())
                 .businessName(p.getBusinessName())

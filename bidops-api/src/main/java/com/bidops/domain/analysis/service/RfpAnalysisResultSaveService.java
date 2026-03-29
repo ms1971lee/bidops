@@ -122,6 +122,7 @@ public class RfpAnalysisResultSaveService {
             String title = truncate(item.getRequirementText(), 80);
 
             // 3-5. Requirement 생성
+            boolean mandatory = item.getMandatory() != null ? item.getMandatory() : false;
             Requirement requirement = Requirement.builder()
                     .projectId(projectId)
                     .documentId(documentId)
@@ -129,28 +130,53 @@ public class RfpAnalysisResultSaveService {
                     .title(title)
                     .originalText(item.getRequirementText())
                     .category(category)
+                    .mandatoryFlag(mandatory)
+                    .evidenceRequiredFlag(mandatory)
                     .analysisStatus(RequirementAnalysisStatus.EXTRACTED)
                     .reviewStatus(RequirementReviewStatus.NOT_REVIEWED)
                     .factLevel(factLevel)
-                    .queryNeeded(queryNeeded)
+                    .queryNeeded(item.getQueryNeeded() != null ? item.getQueryNeeded() : queryNeeded)
+                    .originalReqNos(item.getOriginalRequirementNos())
+                    .extractionStatus(item.getExtractionStatus() != null ? item.getExtractionStatus() : "SINGLE")
+                    .mergeReason(item.getMergeReason())
                     .build();
 
             requirementRepository.save(requirement);
 
             // 3-6. RequirementInsight 생성
             String factSummary = buildFactSummary(item);
-            String riskNoteJson = item.getReviewRequiredNote() != null
-                    ? "[\"" + item.getReviewRequiredNote().replace("\"", "\\\"") + "\"]"
+
+            // riskNote: review_required_note + risk 조합
+            String riskCombined = combineRiskNote(item.getReviewRequiredNote(), item.getRisk());
+            String riskJson = riskCombined != null
+                    ? "[\"" + riskCombined.replace("\"", "\\\"") + "\"]"
+                    : null;
+
+            // deliverables → JSON array
+            String deliverablesJson = item.getDeliverables() != null && !item.getDeliverables().isBlank()
+                    ? "[" + java.util.Arrays.stream(item.getDeliverables().split(","))
+                        .map(String::trim).filter(s -> !s.isEmpty())
+                        .map(s -> "\"" + s.replace("\"", "\\\"") + "\"")
+                        .collect(java.util.stream.Collectors.joining(",")) + "]"
                     : null;
 
             RequirementInsight insight = RequirementInsight.builder()
                     .requirementId(requirement.getId())
                     .factSummary(factSummary)
-                    .interpretationSummary(item.getInferenceNote())
-                    .riskNoteJson(riskNoteJson)
-                    .queryNeeded(queryNeeded)
+                    .interpretationSummary(item.getInterpretation() != null ? item.getInterpretation() : item.getInferenceNote())
+                    .intentSummary(item.getFactBasis())
+                    .proposalPoint(item.getProposalPoint())
+                    .implementationApproach(item.getImplementationDirection())
+                    .expectedDeliverablesJson(deliverablesJson)
+                    .differentiationPoint(item.getDifferentiation())
+                    .riskNoteJson(riskJson)
+                    .queryNeeded(item.getQueryNeeded() != null ? item.getQueryNeeded() : queryNeeded)
                     .factLevel(factLevel)
                     .generatedByJobId(request.getAnalysisJobId())
+                    .evaluationFocus(item.getEvaluationFocus())
+                    .requiredEvidence(item.getRequiredEvidence())
+                    .draftProposalSnippet(item.getDraftProposalSnippet())
+                    .clarificationQuestions(item.getClarificationQuestions())
                     .build();
 
             requirementInsightRepository.save(insight);
@@ -328,6 +354,17 @@ public class RfpAnalysisResultSaveService {
             sb.append("\n[근거: ").append(item.getFactBasis()).append("]");
         }
 
+        return sb.toString();
+    }
+
+    private String combineRiskNote(String reviewNote, String risk) {
+        if (reviewNote == null && risk == null) return null;
+        StringBuilder sb = new StringBuilder();
+        if (risk != null) sb.append(risk);
+        if (reviewNote != null) {
+            if (sb.length() > 0) sb.append(" / ");
+            sb.append("검토필요: ").append(reviewNote);
+        }
         return sb.toString();
     }
 

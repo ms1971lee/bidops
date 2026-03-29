@@ -12,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -28,8 +29,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String token = header.substring(7);
             if (tokenProvider.validate(token)) {
                 String userId = tokenProvider.getUserId(token);
+                String orgId = tokenProvider.getOrganizationId(token);
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                auth.setDetails(Map.of("organizationId", orgId != null ? orgId : ""));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }

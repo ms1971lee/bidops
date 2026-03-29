@@ -167,8 +167,10 @@
 - storagePath
 - version
 - parseStatus
+- pageCount (nullable — 파싱 완료 후 AI 워커가 설정)
 - uploadedBy
 - uploadedAt
+- viewerUrl
 
 ### 7.4 AnalysisJob
 - id
@@ -334,6 +336,41 @@ Request:
 ### 9.5 문서 버전 목록
 `GET /projects/{projectId}/documents/{documentId}/versions`
 
+### 9.6 SourceExcerpt 단건 조회
+`GET /source-excerpts/{id}`
+
+source_excerpt_id로 원문 발췌 블록을 직접 조회한다.
+체크리스트 등에서 requirement sources API를 경유하지 않고 바로 근거 데이터를 가져올 때 사용.
+
+응답:
+```json
+{
+  "id": "se_001",
+  "document_id": "doc_001",
+  "page_no": 5,
+  "excerpt_type": "PARAGRAPH",
+  "anchor_label": "3.1.2",
+  "raw_text": "시스템은 24시간 무중단 운영이 가능해야 한다.",
+  "normalized_text": "...",
+  "bbox_json": "{\"x\":10,\"y\":20,\"w\":80,\"h\":5}"
+}
+```
+
+권한: 해당 문서가 속한 프로젝트의 DOCUMENT_VIEW 권한 필요.
+
+### 9.7 문서 파싱 상태 업데이트 (워커 콜백)
+`PATCH /projects/{projectId}/documents/{documentId}/parse-status`
+
+Request:
+```json
+{
+  "status": "PARSED",
+  "page_count": 42
+}
+```
+
+page_count는 선택 필드. 파싱 완료 시 워커가 함께 전달하면 Document.pageCount에 저장된다.
+
 ---
 
 ## 10. 분석 Job API
@@ -413,20 +450,38 @@ Response data 구조:
 Response data 예시:
 ```json
 {
-  "pageRefs": [12, 13],
-  "clauseRefs": ["3.2.1", "별지1"],
-  "sourceTextBlocks": [
+  "page_refs": [12, 13],
+  "clause_refs": ["3.2.1", "별지1"],
+  "source_text_blocks": [
     {
-      "pageNo": 12,
-      "anchorLabel": "3.2.1",
-      "rawText": "사업관리자를 1인 이상 배치하여야 한다."
+      "id": "abc-123",
+      "page_no": 12,
+      "excerpt_type": "PARAGRAPH",
+      "anchor_label": "3.2.1",
+      "raw_text": "사업관리자를 1인 이상 배치하여야 한다.",
+      "normalized_text": "사업관리자를 1인 이상 배치하여야 한다.",
+      "bbox_json": "{\"x\":5.9,\"y\":14.2,\"w\":88.2,\"h\":3.6}",
+      "link_type": "PRIMARY"
     }
   ]
 }
 ```
 
+필드 설명:
+- `page_refs`: 연결된 SourceExcerpt의 pageNo 유니크 정렬 목록
+- `clause_refs`: 연결된 SourceExcerpt의 anchorLabel 유니크 정렬 목록
+- `source_text_blocks[]`:
+  - `id`: SourceExcerpt ID
+  - `page_no`: 페이지 번호 (1-based)
+  - `excerpt_type`: `PARAGRAPH | TABLE | LIST | HEADER | FOOTNOTE`
+  - `anchor_label`: 조항 번호 (예: "3.2.1", "제4조")
+  - `raw_text`: 원문 텍스트
+  - `normalized_text`: 정규화된 텍스트
+  - `bbox_json`: 페이지 내 위치 좌표 JSON (% 단위). Azure DI 분석 시 제공. null이면 위치 미확인.
+  - `link_type`: `PRIMARY` (핵심 원문) 또는 `SUPPORTING` (보조 근거)
+
 설명:
-- `pageRefs`, `clauseRefs`는 `RequirementSource` + `SourceExcerpt` 조합 결과다.
+- `page_refs`, `clause_refs`는 `RequirementSource` + `SourceExcerpt` 조합 결과다.
 - DB에서 `Requirement` 본문 컬럼으로 직접 저장하지 않는다.
 
 ### 11.5 요구사항 AI 분석 조회
@@ -477,14 +532,16 @@ Response:
 ---
 
 ## 12. 체크리스트 API
-### 12.1 체크리스트 목록 조회
-`GET /projects/{projectId}/checklists`
+### 12.1 체크리스트 항목 목록 조회
+`GET /projects/{projectId}/checklists/{checklistId}/items`
 
-Query:
-- type
-- status
-- ownerUserId
-- mandatoryOnly
+Query (모두 optional, AND 조합):
+- status (ChecklistItemStatus)
+- risk_level (RiskLevel)
+- mandatory (boolean)
+- requirement_id (string)
+- owner_user_id (string)
+- keyword (string — item_text LIKE 검색)
 
 ### 12.2 체크리스트 항목 생성
 `POST /projects/{projectId}/checklists`
@@ -519,17 +576,70 @@ Query:
 ---
 
 ## 14. 산출물(Artifact) API
+
 ### 14.1 산출물 목록 조회
 `GET /projects/{projectId}/artifacts`
 
 ### 14.2 산출물 생성
 `POST /projects/{projectId}/artifacts`
 
+Request:
+```json
+{
+  "title": "요구사항 정의서",
+  "asset_type": "PROPOSAL",
+  "description": "...",
+  "linked_requirement_id": null,
+  "linked_checklist_item_id": null
+}
+```
+
+`asset_type` 값: `PROPOSAL`, `DESIGN`, `PLAN`, `REPORT`, `EVIDENCE`, `PRESENTATION`, `ETC`
+
 ### 14.3 산출물 상태 변경
-`PATCH /projects/{projectId}/artifacts/{artifactId}`
+`POST /projects/{projectId}/artifacts/{artifactId}/status`
+
+Request: `{ "status": "DRAFT|IN_PROGRESS|REVIEW|APPROVED|SUBMITTED" }`
 
 ### 14.4 산출물 버전 목록
 `GET /projects/{projectId}/artifacts/{artifactId}/versions`
+
+### 14.5 산출물 수정
+`PATCH /projects/{projectId}/artifacts/{artifactId}`
+
+Request (모든 필드 선택):
+```json
+{
+  "title": "수정된 제목",
+  "asset_type": "DESIGN",
+  "description": "수정된 설명",
+  "linked_requirement_id": "req-id",
+  "linked_checklist_item_id": null
+}
+```
+
+### 14.6 산출물 삭제
+`DELETE /projects/{projectId}/artifacts/{artifactId}`
+
+### 14.7 산출물 버전 업로드
+`POST /projects/{projectId}/artifacts/{artifactId}/versions` (multipart/form-data)
+
+Form fields:
+- `file` (필수): 업로드 파일
+- `version_note` (선택): 버전 메모
+
+Response:
+```json
+{
+  "id": "...",
+  "version": 1,
+  "file_name": "요구사항정의서_v1.pdf",
+  "version_note": "초안",
+  "uploaded_by": "user-id",
+  "viewer_url": "http://localhost:8080/files/projects/...",
+  "created_at": "..."
+}
+```
 
 ---
 

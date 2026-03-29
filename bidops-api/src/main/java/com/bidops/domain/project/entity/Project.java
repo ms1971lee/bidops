@@ -19,6 +19,9 @@ public class Project extends BaseEntity {
     @Column(length = 36)
     private String id;
 
+    @Column(name = "organization_id", length = 36)
+    private String organizationId;
+
     @Column(nullable = false, length = 200)
     private String name;
 
