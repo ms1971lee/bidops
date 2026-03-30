@@ -162,6 +162,22 @@ export const requirementApi = {
     request<any>(`${BASE}/projects/${projectId}/requirements/${id}/review-status`, {
       method: "POST", body: JSON.stringify(body),
     }),
+  reanalyze: (projectId: string, id: string) =>
+    request<any>(`${BASE}/projects/${projectId}/requirements/${id}/reanalyze`, {
+      method: "POST",
+    }),
+  reanalyzeHistory: (projectId: string, id: string, limit = 10) =>
+    request<any[]>(`${BASE}/projects/${projectId}/requirements/${id}/reanalyze-history?limit=${limit}`),
+  qualityStats: (projectId: string) =>
+    request<any>(`${BASE}/projects/${projectId}/requirements/quality-stats`),
+  batchReanalyze: (projectId: string, requirementIds: string[]) =>
+    request<any>(`${BASE}/projects/${projectId}/requirements/batch-reanalyze`, {
+      method: "POST", body: JSON.stringify({ requirement_ids: requirementIds }),
+    }),
+  batchReanalyzeStatus: (projectId: string, jobIds: string[]) =>
+    request<any>(`${BASE}/projects/${projectId}/requirements/batch-reanalyze-status?job_ids=${jobIds.join(",")}`),
+  reanalyzeStatusMap: (projectId: string) =>
+    request<any>(`${BASE}/projects/${projectId}/requirements/reanalyze-status-map`),
 };
 
 // ── Analysis Jobs ───────────────────────────────────────────────────

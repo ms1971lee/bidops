@@ -1,8 +1,11 @@
 package com.bidops.domain.requirement.service;
 
 import com.bidops.common.response.ListData;
+import com.bidops.domain.analysis.dto.AnalysisJobDto;
 import com.bidops.domain.requirement.dto.*;
 import com.bidops.domain.requirement.enums.*;
+
+import java.util.List;
 
 public interface RequirementService {
 
@@ -12,6 +15,7 @@ public interface RequirementService {
             RequirementCategory category, Boolean mandatory, Boolean evidenceRequired,
             RequirementAnalysisStatus analysisStatus, RequirementReviewStatus reviewStatus,
             FactLevel factLevel, Boolean queryNeeded, String keyword,
+            String qualityIssueCode, String qualitySeverity,
             int page, int size);
 
     RequirementDetailDto getRequirement(String projectId, String requirementId);
@@ -33,4 +37,21 @@ public interface RequirementService {
 
     RequirementReviewDto changeReviewStatus(String projectId, String requirementId,
                                             RequirementReviewStatusChangeRequest request);
+
+    // ── 단건 재분석 ─────────────────────────────────────────────────────────────
+    RequirementReanalyzeResponseDto reanalyzeRequirementInsight(String projectId, String requirementId);
+
+    // ── 일괄 재분석 ─────────────────────────────────────────────────────────────
+    BatchReanalyzeResponseDto batchReanalyze(String projectId, List<String> requirementIds);
+
+    BatchReanalyzeStatusDto getBatchReanalyzeStatus(String projectId, List<String> jobIds);
+
+    // ── 재분석 이력 조회 ────────────────────────────────────────────────────────
+    List<AnalysisJobDto> getReanalyzeHistory(String projectId, String requirementId, int limit);
+
+    // ── 품질 이슈 통계 ─────────────────────────────────────────────────────────
+    QualityStatsDto getQualityStats(String projectId);
+
+    // ── 프로젝트 내 최근 재분석 상태 맵 ──────────────────────────────────────
+    ReanalyzeStatusMapDto getReanalyzeStatusMap(String projectId);
 }

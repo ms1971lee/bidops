@@ -1,6 +1,7 @@
 package com.bidops.domain.analysis.worker;
 
 import com.bidops.domain.analysis.entity.AnalysisJob;
+import com.bidops.domain.analysis.pipeline.OpenAiException;
 import com.bidops.domain.analysis.repository.AnalysisJobRepository;
 import com.bidops.domain.project.enums.ActivityType;
 import com.bidops.domain.project.service.ProjectActivityService;
@@ -80,7 +81,11 @@ public class AnalysisJobWorker {
 
             // 3. 실행 (progress 콜백으로 진행률 DB 저장)
             try {
-                int resultCount = handler.execute(job, (percent) -> updateProgress(jobId, percent));
+                AnalysisJobHandler.ProgressCallback callback = new AnalysisJobHandler.ProgressCallback() {
+                    @Override public void report(int percent) { updateProgress(jobId, percent, null); }
+                    @Override public void reportStep(int percent, String step) { updateProgress(jobId, percent, step); }
+                };
+                int resultCount = handler.execute(job, callback);
                 completeJob(jobId, resultCount);
             } catch (Exception e) {
                 log.error("[Worker] Job 실행 실패: jobId={}", jobId, e);
@@ -107,11 +112,11 @@ public class AnalysisJobWorker {
         return job;
     }
 
-    private void updateProgress(String jobId, int percent) {
+    private void updateProgress(String jobId, int percent, String step) {
         try {
-            jobRepository.updateProgressById(jobId, Math.min(100, Math.max(0, percent)));
+            jobRepository.updateProgressById(jobId, Math.min(100, Math.max(0, percent)), step);
         } catch (Exception e) {
-            log.warn("[Worker] progress 업데이트 실패 (무시): jobId={} percent={}", jobId, percent);
+            log.warn("[Worker] progress 업데이트 실패 (무시): jobId={} percent={} step={}", jobId, percent, step);
         }
     }
 
@@ -133,18 +138,37 @@ public class AnalysisJobWorker {
         AnalysisJob job = jobRepository.findById(jobId).orElse(null);
         if (job == null) return;
 
-        String errorCode = e.getClass().getSimpleName();
-        String errorMessage = e.getMessage() != null ? e.getMessage() : "알 수 없는 오류";
+        // OpenAiException이면 구조화된 에러 코드/메시지 사용
+        String errorCode;
+        String errorMessage;
+        boolean retryable;
+
+        if (e instanceof OpenAiException oae) {
+            errorCode = oae.getErrorCode().name();
+            errorMessage = oae.getMessage(); // 사용자용 짧은 문구
+            retryable = oae.isRetryable();
+            log.warn("[Worker] OpenAI 오류: jobId={} code={} httpStatus={} retryable={} detail={}",
+                    jobId, errorCode, oae.getHttpStatus(), retryable, oae.getProviderDetail());
+        } else {
+            errorCode = e.getClass().getSimpleName();
+            errorMessage = e.getMessage() != null ? e.getMessage() : "알 수 없는 오류";
+            retryable = true; // 미분류 오류는 재시도 허용
+        }
         if (errorMessage.length() > 450) errorMessage = errorMessage.substring(0, 450);
 
-        if (job.canRetry()) {
+        int totalAttempts = job.getRetryCount() + 1; // 현재까지 총 시도 횟수
+        int maxTotal = job.getMaxRetries() + 1;    // 최대 총 시도 횟수
+
+        if (retryable && job.canRetry()) {
             job.retry();
             jobRepository.save(job);
-            log.info("[Worker] Job 재시도 예약: jobId={} retryCount={}/{}", jobId, job.getRetryCount(), job.getMaxRetries());
+            log.info("[Worker] Job 재시도 예약: jobId={} attempt={}/{} errorCode={}",
+                    jobId, totalAttempts, maxTotal, errorCode);
         } else {
             job.fail(errorCode, errorMessage);
             jobRepository.save(job);
-            log.warn("[Worker] Job 최종 실패: jobId={} error={}", jobId, errorMessage);
+            log.warn("[Worker] Job 최종 실패: jobId={} attempt={}/{} errorCode={} retryable={} error={}",
+                    jobId, totalAttempts, maxTotal, errorCode, retryable, errorMessage);
 
             activityService.record(job.getProjectId(), ActivityType.ANALYSIS_FAILED,
                     "분석 실패: " + job.getJobType() + " - " + errorMessage,

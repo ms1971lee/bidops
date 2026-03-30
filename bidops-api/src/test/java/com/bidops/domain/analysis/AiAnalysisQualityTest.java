@@ -26,12 +26,18 @@ class AiAnalysisQualityTest {
     ObjectMapper mapper = new ObjectMapper();
 
     // parseAnalysisResponse를 직접 호출하기 위한 리플렉션
-    private List<RfpAnalysisResultItem> parseResponse(String json) throws Exception {
-        // AiAnalysisJobHandler 인스턴스 생성 (saveService/textExtractor/objectMapper만 필요)
+    private Object createHandler() throws Exception {
         var constructor = AiAnalysisJobHandler.class.getDeclaredConstructors()[0];
         constructor.setAccessible(true);
-        Object handler = constructor.newInstance(null, null, mapper);
+        int paramCount = constructor.getParameterCount();
+        Object[] args = new Object[paramCount];
+        // objectMapper는 3번째 파라미터 (index 2)
+        args[2] = mapper;
+        return constructor.newInstance(args);
+    }
 
+    private List<RfpAnalysisResultItem> parseResponse(String json) throws Exception {
+        Object handler = createHandler();
         Method method = AiAnalysisJobHandler.class.getDeclaredMethod("parseAnalysisResponse", String.class);
         method.setAccessible(true);
         @SuppressWarnings("unchecked")
@@ -40,9 +46,7 @@ class AiAnalysisQualityTest {
     }
 
     private AnalysisResultStatus parseStatus(String value) throws Exception {
-        var constructor = AiAnalysisJobHandler.class.getDeclaredConstructors()[0];
-        constructor.setAccessible(true);
-        Object handler = constructor.newInstance(null, null, mapper);
+        Object handler = createHandler();
 
         Method method = AiAnalysisJobHandler.class.getDeclaredMethod("parseStatus", String.class);
         method.setAccessible(true);

@@ -529,6 +529,25 @@ Request:
 Response:
 - `RequirementReview` DTO 반환
 
+### 11.9 요구사항 단건 재분석
+`POST /projects/{projectId}/requirements/{requirementId}/reanalyze`
+
+특정 requirement 1건만 재분석한다.
+- RequirementInsight만 갱신하고 RequirementReview는 변경하지 않는다.
+- AnalysisJob에 `REQUIREMENT_INSIGHT_REANALYZE` 타입으로 이력을 남긴다.
+- 원문 근거(RequirementSource → SourceExcerpt)가 없으면 400 오류.
+
+Response:
+```json
+{
+  "requirement_id": "req-uuid",
+  "analysis_job_id": "job-uuid",
+  "analysis_status": "PENDING",
+  "insight": { /* RequirementInsight DTO */ },
+  "review": { /* RequirementReview DTO — 변경 없이 그대로 */ }
+}
+```
+
 ---
 
 ## 12. 체크리스트 API

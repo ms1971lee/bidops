@@ -92,6 +92,14 @@ public class RequirementInsight extends BaseEntity {
     @Column(name = "analysis_prompt_version", length = 50)
     private String analysisPromptVersion;
 
+    /** 재분석 입력 fingerprint (SHA-256 hex). originalText + sourceExcerpt + promptVersion 기반. */
+    @Column(name = "input_fingerprint", length = 64)
+    private String inputFingerprint;
+
+    /** 품질 검증 이슈 목록 (JSON array). REVIEW_NEEDED 강등 사유 등. */
+    @Column(name = "quality_issues", columnDefinition = "TEXT")
+    private String qualityIssuesJson;
+
     public void update(String factSummary, String interpretationSummary,
                        String intentSummary, String proposalPoint,
                        String implementationApproach, String expectedDeliverablesJson,
@@ -107,5 +115,38 @@ public class RequirementInsight extends BaseEntity {
         if (riskNoteJson != null)             this.riskNoteJson = riskNoteJson;
         if (queryNeeded != null)              this.queryNeeded = queryNeeded;
         if (factLevel != null)                this.factLevel = factLevel;
+    }
+
+    /**
+     * 단건 재분석 결과로 insight 전체 필드를 덮어쓴다.
+     * generatedByJobId, analysisPromptVersion 갱신 포함.
+     */
+    public void overwriteForReanalysis(String factSummary, String interpretationSummary,
+                                        String intentSummary, String proposalPoint,
+                                        String implementationApproach, String expectedDeliverablesJson,
+                                        String differentiationPoint, String riskNoteJson,
+                                        boolean queryNeeded, FactLevel factLevel,
+                                        String evaluationFocus, String requiredEvidence,
+                                        String draftProposalSnippet, String clarificationQuestions,
+                                        String generatedByJobId, String analysisPromptVersion,
+                                        String inputFingerprint, String qualityIssuesJson) {
+        this.factSummary = factSummary;
+        this.interpretationSummary = interpretationSummary;
+        this.intentSummary = intentSummary;
+        this.proposalPoint = proposalPoint;
+        this.implementationApproach = implementationApproach;
+        this.expectedDeliverablesJson = expectedDeliverablesJson;
+        this.differentiationPoint = differentiationPoint;
+        this.riskNoteJson = riskNoteJson;
+        this.queryNeeded = queryNeeded;
+        this.factLevel = factLevel;
+        this.evaluationFocus = evaluationFocus;
+        this.requiredEvidence = requiredEvidence;
+        this.draftProposalSnippet = draftProposalSnippet;
+        this.clarificationQuestions = clarificationQuestions;
+        this.generatedByJobId = generatedByJobId;
+        this.analysisPromptVersion = analysisPromptVersion;
+        this.inputFingerprint = inputFingerprint;
+        this.qualityIssuesJson = qualityIssuesJson;
     }
 }

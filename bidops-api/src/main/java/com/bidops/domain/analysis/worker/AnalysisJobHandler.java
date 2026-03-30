@@ -28,5 +28,9 @@ public interface AnalysisJobHandler {
     @FunctionalInterface
     interface ProgressCallback {
         void report(int percent);
+
+        default void reportStep(int percent, String step) {
+            report(percent);
+        }
     }
 }

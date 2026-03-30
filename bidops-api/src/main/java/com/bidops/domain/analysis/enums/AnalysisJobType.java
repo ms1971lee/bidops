@@ -9,5 +9,6 @@ public enum AnalysisJobType {
     QUERY_BUILD,
     ARTIFACT_BUILD,
     SEARCH_INDEX,
-    RFP_PARSE
+    RFP_PARSE,
+    REQUIREMENT_INSIGHT_REANALYZE
 }

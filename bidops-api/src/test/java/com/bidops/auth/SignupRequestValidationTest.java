@@ -30,6 +30,7 @@ class SignupRequestValidationTest {
             setField(req, "name", name);
             setField(req, "email", email);
             setField(req, "password", password);
+            setField(req, "organizationName", "테스트조직");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

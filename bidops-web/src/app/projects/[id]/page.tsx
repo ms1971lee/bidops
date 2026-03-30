@@ -42,6 +42,7 @@ export default function AnalysisDashboard() {
   const [highRiskList, setHighRiskList] = useState<any[]>([]);
   const [needsReviewItems, setNeedsReviewItems] = useState<any[]>([]);
   const [previewTab, setPreviewTab] = useState<"review" | "checklist" | "query">("review");
+  const [qualityStats, setQualityStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -115,6 +116,9 @@ export default function AnalysisDashboard() {
       setRecentReviewed((reviewedData as any).items || []);
       setHighRiskList(highRiskAll.slice(0, 10));
       setNeedsReviewItems((needsReviewData as any).items || []);
+
+      // 품질 이슈 통계 로드
+      requirementApi.qualityStats(id).then(setQualityStats).catch(() => setQualityStats(null));
     }).catch((e) => {
       setError(e.code === "FORBIDDEN" ? "이 프로젝트에 접근할 권한이 없습니다." : (e.message || "데이터를 불러올 수 없습니다."));
     }).finally(() => setLoading(false));
@@ -233,6 +237,52 @@ export default function AnalysisDashboard() {
               </Link>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── AI 분석 품질 현황 ──────────────────────────────────────── */}
+      {qualityStats && qualityStats.total_requirement_count > 0 && (
+        <div className="bg-white rounded border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">AI 분석 품질</h3>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500">
+                검토필요 <b className="text-amber-700">{qualityStats.review_needed_count}</b>/{qualityStats.total_requirement_count}건
+              </span>
+              {qualityStats.by_severity?.CRITICAL > 0 && (
+                <Link href={`/projects/${id}/requirements?quality_severity=CRITICAL`}
+                  className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold hover:ring-2 hover:ring-red-300 transition-all">
+                  치명 {qualityStats.by_severity.CRITICAL}
+                </Link>
+              )}
+              {qualityStats.by_severity?.MINOR > 0 && (
+                <Link href={`/projects/${id}/requirements?quality_severity=MINOR`}
+                  className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold hover:ring-2 hover:ring-amber-300 transition-all">
+                  일반 {qualityStats.by_severity.MINOR}
+                </Link>
+              )}
+            </div>
+          </div>
+          {qualityStats.by_code && qualityStats.by_code.length > 0 ? (
+            <div className="space-y-1.5">
+              {qualityStats.by_code.slice(0, 5).map((item: any) => (
+                <Link key={item.code}
+                  href={`/projects/${id}/requirements?quality_issue_code=${item.code}`}
+                  className="flex items-center gap-2 text-xs hover:bg-gray-50 rounded px-1 py-0.5 -mx-1 transition-colors">
+                  <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold ${
+                    item.severity === "CRITICAL" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                  }`}>
+                    {item.severity === "CRITICAL" ? "치명" : "일반"}
+                  </span>
+                  <span className="flex-1 text-gray-700">{item.message}</span>
+                  <span className="font-mono text-gray-400 text-[10px]">{item.code}</span>
+                  <span className="font-bold text-gray-600 min-w-[24px] text-right">{item.count}</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400 py-4 text-center">품질 이슈가 없습니다.</div>
+          )}
         </div>
       )}
 

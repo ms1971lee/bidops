@@ -22,11 +22,17 @@ public class AnalysisJobDto {
     @JsonProperty("document_id")
     private String documentId;
 
+    @JsonProperty("target_requirement_id")
+    private String targetRequirementId;
+
     @JsonProperty("job_type")
     private AnalysisJobType jobType;
 
     private AnalysisJobStatus status;
     private Integer progress;
+
+    @JsonProperty("progress_step")
+    private String progressStep;
 
     @JsonProperty("started_at")
     private LocalDateTime startedAt;
@@ -49,14 +55,25 @@ public class AnalysisJobDto {
     @JsonProperty("max_retries")
     private Integer maxRetries;
 
+    @JsonProperty("cache_hit")
+    private boolean cacheHit;
+
+    @JsonProperty("analysis_prompt_version")
+    private String analysisPromptVersion;
+
+    @JsonProperty("created_at")
+    private LocalDateTime createdAt;
+
     public static AnalysisJobDto from(AnalysisJob j) {
         return AnalysisJobDto.builder()
                 .id(j.getId())
                 .projectId(j.getProjectId())
                 .documentId(j.getDocumentId())
+                .targetRequirementId(j.getTargetRequirementId())
                 .jobType(j.getJobType())
                 .status(j.getStatus())
-                .progress(j.getProgress())
+                .progress(j.getStatus() == AnalysisJobStatus.COMPLETED ? 100 : j.getProgress())
+                .progressStep(j.getStatus() == AnalysisJobStatus.COMPLETED ? "DONE" : j.getProgressStep())
                 .startedAt(j.getStartedAt())
                 .finishedAt(j.getFinishedAt())
                 .errorCode(j.getErrorCode())
@@ -64,6 +81,9 @@ public class AnalysisJobDto {
                 .resultCount(j.getResultCount())
                 .retryCount(j.getRetryCount())
                 .maxRetries(j.getMaxRetries())
+                .cacheHit(j.isCacheHit())
+                .analysisPromptVersion(j.getAnalysisPromptVersion())
+                .createdAt(j.getCreatedAt())
                 .build();
     }
 }

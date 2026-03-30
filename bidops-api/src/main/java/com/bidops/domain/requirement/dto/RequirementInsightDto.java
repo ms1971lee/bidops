@@ -69,6 +69,9 @@ public class RequirementInsightDto {
     @JsonProperty("clarification_questions")
     private String clarificationQuestions;
 
+    @JsonProperty("quality_issues")
+    private List<QualityIssueDto> qualityIssues;
+
     // ── factory ──────────────────────────────────────────────────────────────
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -90,6 +93,7 @@ public class RequirementInsightDto {
                 .requiredEvidence(i.getRequiredEvidence())
                 .draftProposalSnippet(i.getDraftProposalSnippet())
                 .clarificationQuestions(i.getClarificationQuestions())
+                .qualityIssues(parseQualityIssuesStatic(i.getQualityIssuesJson()))
                 .build();
     }
 
@@ -99,6 +103,7 @@ public class RequirementInsightDto {
                 .factLevel(FactLevel.REVIEW_NEEDED)
                 .expectedDeliverables(Collections.emptyList())
                 .riskNote(Collections.emptyList())
+                .qualityIssues(Collections.<QualityIssueDto>emptyList())
                 .build();
     }
 
@@ -106,5 +111,38 @@ public class RequirementInsightDto {
         if (json == null || json.isBlank()) return Collections.emptyList();
         try { return MAPPER.readValue(json, new TypeReference<>() {}); }
         catch (Exception e) { log.warn("JSON 파싱 실패: {}", json); return Collections.emptyList(); }
+    }
+
+    public static List<QualityIssueDto> parseQualityIssuesStatic(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyList();
+        try {
+            com.fasterxml.jackson.databind.JsonNode arr = MAPPER.readTree(json);
+            if (!arr.isArray()) return Collections.emptyList();
+            List<QualityIssueDto> result = new java.util.ArrayList<>();
+            for (var node : arr) {
+                if (node.isObject() && node.has("code")) {
+                    // 구조화 형식: {severity, code, message}
+                    result.add(QualityIssueDto.builder()
+                            .severity(node.path("severity").asText("MINOR"))
+                            .code(node.path("code").asText())
+                            .message(node.path("message").asText(""))
+                            .build());
+                } else if (node.isTextual()) {
+                    // 레거시 문자열 형식: "CRITICAL: risk_note 0건" → 호환 변환
+                    String text = node.asText();
+                    String severity = text.startsWith("CRITICAL:") ? "CRITICAL" : "MINOR";
+                    String msg = text.replaceFirst("^(CRITICAL|MINOR):\\s*", "");
+                    result.add(QualityIssueDto.builder()
+                            .severity(severity)
+                            .code("LEGACY")
+                            .message(msg)
+                            .build());
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("quality_issues 파싱 실패: {}", json);
+            return Collections.emptyList();
+        }
     }
 }

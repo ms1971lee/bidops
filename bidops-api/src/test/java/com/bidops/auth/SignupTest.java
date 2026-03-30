@@ -20,6 +20,7 @@ import static org.mockito.BDDMockito.*;
 class SignupTest {
 
     @Mock UserRepository userRepository;
+    @Mock com.bidops.domain.organization.repository.OrganizationRepository organizationRepository;
     @Mock JwtTokenProvider tokenProvider;
     @Mock PasswordEncoder passwordEncoder;
     @InjectMocks AuthController sut;
@@ -30,6 +31,7 @@ class SignupTest {
             setField(req, "name", name);
             setField(req, "email", email);
             setField(req, "password", password);
+            setField(req, "organizationName", "테스트조직");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -51,6 +53,11 @@ class SignupTest {
         void signupSuccess() {
             given(userRepository.existsByEmail("new@test.com")).willReturn(false);
             given(passwordEncoder.encode("password123")).willReturn("$2a$hashed");
+            given(organizationRepository.save(any())).willAnswer(inv -> {
+                var org = inv.getArgument(0);
+                setField(org, "id", "org-id");
+                return org;
+            });
             given(userRepository.save(any(User.class))).willAnswer(inv -> {
                 User u = inv.getArgument(0);
                 setField(u, "id", "generated-id");

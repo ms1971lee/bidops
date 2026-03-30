@@ -27,6 +27,10 @@ public class AnalysisJob {
     @Column(name = "document_id", nullable = false, length = 36)
     private String documentId;
 
+    /** 단건 재분석 대상 requirement ID (REQUIREMENT_INSIGHT_REANALYZE 전용) */
+    @Column(name = "target_requirement_id", length = 36)
+    private String targetRequirementId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "job_type", nullable = false, length = 40)
     private AnalysisJobType jobType;
@@ -40,6 +44,10 @@ public class AnalysisJob {
     @Column(nullable = false)
     @Builder.Default
     private Integer progress = 0;
+
+    /** 현재 처리 단계명 (예: LOADING_REQUIREMENT, CALLING_AI 등) */
+    @Column(name = "progress_step", length = 30)
+    private String progressStep;
 
     @Column(name = "started_at")
     private LocalDateTime startedAt;
@@ -63,10 +71,15 @@ public class AnalysisJob {
     @Builder.Default
     private Integer retryCount = 0;
 
-    /** 최대 재시도 횟수 */
+    /** 최대 재시도 횟수 (총 시도 = 1 + maxRetries) */
     @Column(name = "max_retries", nullable = false)
     @Builder.Default
-    private Integer maxRetries = 3;
+    private Integer maxRetries = 2;
+
+    /** 재분석 캐시 히트 여부 (입력 fingerprint 동일 시 OpenAI 미호출) */
+    @Column(name = "cache_hit", nullable = false)
+    @Builder.Default
+    private boolean cacheHit = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
@@ -99,10 +112,11 @@ public class AnalysisJob {
     }
 
     public void complete(int resultCount) {
-        this.status      = AnalysisJobStatus.COMPLETED;
-        this.progress    = 100;
-        this.resultCount = resultCount;
-        this.finishedAt  = LocalDateTime.now();
+        this.status       = AnalysisJobStatus.COMPLETED;
+        this.progress     = 100;
+        this.progressStep = "DONE";
+        this.resultCount  = resultCount;
+        this.finishedAt   = LocalDateTime.now();
     }
 
     public void fail(String errorCode, String errorMessage) {
@@ -138,5 +152,9 @@ public class AnalysisJob {
 
     public boolean canRetry() {
         return this.retryCount < this.maxRetries;
+    }
+
+    public void markCacheHit() {
+        this.cacheHit = true;
     }
 }

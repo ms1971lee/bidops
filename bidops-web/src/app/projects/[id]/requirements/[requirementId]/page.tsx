@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { requirementApi, documentApi, checklistApi, activityApi, memberApi, type ProjectMemberDto } from "@/lib/api";
+import { requirementApi, documentApi, checklistApi, activityApi, memberApi, analysisJobApi, type ProjectMemberDto, type ApiError } from "@/lib/api";
 import { useProjectRole } from "@/lib/useProjectRole";
 import StatusBadge from "@/components/common/StatusBadge";
 import PdfViewer, { parseBboxJson, excerptTypeStyle } from "@/components/common/PdfViewer";
@@ -20,7 +20,6 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS);
 
-type CenterTab = "basic" | "analysis" | "checklist" | "history";
 
 export default function RequirementDetailPage() {
   const { id: projectId, requirementId } = useParams() as { id: string; requirementId: string };
@@ -31,8 +30,9 @@ export default function RequirementDetailPage() {
   const reviewMode = searchParams.get("mode") === "review";
   const deepLinkApplied = useRef(false);
 
-  const [centerTab, setCenterTab] = useState<CenterTab>("analysis");
   const [reviewDone, setReviewDone] = useState(false);
+  const [activeSection, setActiveSection] = useState("section-original");
+  const centerScrollRef = useRef<HTMLDivElement>(null);
 
   const [detail, setDetail] = useState<any>(null);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -81,6 +81,28 @@ export default function RequirementDetailPage() {
   // left panel: source list collapsed + filter
   const [sourceListOpen, setSourceListOpen] = useState(true);
   const [sourceFilter, setSourceFilter] = useState("");
+
+  // ── 중앙 섹션 active 감지 (IntersectionObserver) ─────────────
+  useEffect(() => {
+    const root = centerScrollRef.current;
+    if (!root) return;
+    const ids = ["section-original", "section-analysis", "section-checklist", "section-activity"];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        }
+      },
+      { root, rootMargin: "-10% 0px -80% 0px", threshold: 0 }
+    );
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [loading]);
 
   // members (for reviewer name resolution)
   const [members, setMembers] = useState<ProjectMemberDto[]>([]);
@@ -173,13 +195,20 @@ export default function RequirementDetailPage() {
 
     const bbox = parseBboxJson(block.bbox_json, block.anchor_label);
     if (bbox) {
-      // bbox 있으면 정확한 위치 하이라이트
       setPdfHighlight(bbox);
     } else {
-      // bbox 없으면 페이지 이동 + anchor fallback
       setPdfHighlight(block.anchor_label
         ? { x: 5, y: 10, w: 90, h: 8, label: `${block.anchor_label} (p.${block.page_no})` }
         : null);
+    }
+
+    // 중앙 원문 섹션으로 이동 + 짧은 highlight 효과
+    const target = document.getElementById("section-original");
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      // highlight flash
+      target.classList.add("bg-orange-50");
+      setTimeout(() => target.classList.remove("bg-orange-50"), 800);
     }
   };
 
@@ -336,12 +365,6 @@ export default function RequirementDetailPage() {
       })
     : sourceBlocks;
 
-  const CENTER_TABS: { key: CenterTab; label: string }[] = [
-    { key: "basic", label: "원문/기본" },
-    { key: "analysis", label: "AI 분석" },
-    { key: "checklist", label: `체크 (${linkedItems.length})` },
-    { key: "history", label: "이력" },
-  ];
 
   return (
     <div className="flex flex-col gap-2 relative">
@@ -363,62 +386,52 @@ export default function RequirementDetailPage() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {reviewMode && (
-          <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">검토 모드</span>
-        )}
+      <div className="flex items-center gap-2.5 flex-wrap bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5">
         <Link href={`/projects/${projectId}/requirements`}
-          className="text-sm text-gray-500 hover:underline">&larr; 목록</Link>
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors">&larr; 목록</Link>
 
-        {/* 이전/다음 네비게이션 */}
-        <div className="flex items-center gap-1 border rounded px-1">
+        <div className="flex items-center gap-0.5 border border-gray-200 rounded-lg px-0.5">
           <button onClick={() => prevReq && navigateTo(prevReq.id)} disabled={!prevReq}
-            className="px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-            title={prevReq ? `이전: ${prevReq.requirement_code}` : ""}>&larr;</button>
-          {navList.length > 0 && (
-            <span className="text-[10px] text-gray-500 min-w-[50px] text-center">
-              {currentIndex + 1}/{navList.length}
-              {reviewMode && navList.length < reqList.length && <span className="text-gray-300"> ({reqList.length})</span>}
-            </span>
-          )}
+            className="px-2 py-1 text-xs hover:bg-gray-50 rounded-lg disabled:opacity-20 transition-colors">&larr;</button>
+          <span className="text-[10px] text-gray-400 min-w-[44px] text-center tabular-nums">
+            {currentIndex + 1}/{navList.length}
+          </span>
           <button onClick={() => nextReq && navigateTo(nextReq.id)} disabled={!nextReq}
-            className="px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-            title={nextReq ? `다음: ${nextReq.requirement_code}` : ""}>&rarr;</button>
+            className="px-2 py-1 text-xs hover:bg-gray-50 rounded-lg disabled:opacity-20 transition-colors">&rarr;</button>
         </div>
 
-        <span className="font-mono font-bold text-lg">{req.requirement_code}</span>
+        <span className="font-mono font-semibold text-base text-gray-800">{req.requirement_code}</span>
         <StatusBadge value={req.review_status || "NOT_REVIEWED"} />
         <StatusBadge value={req.fact_level || "REVIEW_NEEDED"} />
-        {req.mandatory_flag && <span className="text-red-500 text-xs font-bold bg-red-50 px-1.5 py-0.5 rounded">필수</span>}
-        {req.query_needed && <span className="text-orange-500 text-xs font-bold bg-orange-50 px-1.5 py-0.5 rounded">질의필요</span>}
+        {req.mandatory_flag && <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-md">필수</span>}
+        {req.query_needed && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-md">질의필요</span>}
         {req.extraction_status === "MERGED" && (
-          <span className="text-purple-700 text-[10px] font-bold bg-purple-50 px-1.5 py-0.5 rounded" title={req.merge_reason || ""}>
+          <span className="text-[10px] font-medium text-violet-600 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded-md" title={req.merge_reason || ""}>
             병합 ({req.original_req_nos})
           </span>
         )}
-        {req.original_req_nos && req.extraction_status !== "MERGED" && (
-          <span className="text-gray-400 text-[10px] font-mono" title="원문 번호">{req.original_req_nos}</span>
-        )}
-        <div className="ml-auto flex gap-2 items-center">
-          <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer">
+        {reviewMode && <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-md font-medium">검토 모드</span>}
+
+        <div className="ml-auto flex gap-3 items-center">
+          <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none">
             <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)}
-              className="w-3 h-3" />
-            검토 후 자동이동
+              className="w-3 h-3 rounded" />
+            자동이동
           </label>
           <Link href={`/projects/${projectId}/search?keyword=${encodeURIComponent(req.title || "")}&category=${req.category || ""}`}
-            className="text-xs text-purple-600 hover:underline">
-            유사 제안 검색
+            className="text-[10px] text-gray-400 hover:text-violet-600 transition-colors">
+            유사 검색
           </Link>
         </div>
       </div>
 
-      {/* ── 3-Panel Layout (responsive: stack on small screens) ─── */}
+      {/* ── 3-Panel Layout ─── */}
       <div className="flex flex-col lg:flex-row gap-3" style={{ height: "calc(100vh - 180px)" }}>
 
         {/* ═══ LEFT: PDF + Sources ═══ */}
-        <div className="w-full lg:w-[38%] lg:min-w-[300px] flex flex-col gap-2 lg:shrink-0 min-h-[250px] lg:min-h-0">
+        <div className="w-full lg:w-[38%] lg:min-w-[300px] flex flex-col gap-2.5 lg:shrink-0 min-h-[250px] lg:min-h-0">
           {/* PDF Viewer */}
-          <div className="flex-1 min-h-0 bg-gray-50 rounded border relative">
+          <div className="flex-1 min-h-0 bg-gray-50 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden">
             {pdfUrl ? (
               <>
                 <div className="absolute top-1 left-2 z-30 flex items-center gap-1.5 text-[10px]">
@@ -455,10 +468,10 @@ export default function RequirementDetailPage() {
           </div>
 
           {/* Source Blocks List */}
-          <div className="bg-white rounded border overflow-hidden flex flex-col"
-            style={{ maxHeight: sourceListOpen ? "40%" : "36px", minHeight: "36px", transition: "max-height 0.2s" }}>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col"
+            style={{ maxHeight: sourceListOpen ? "40%" : "40px", minHeight: "40px", transition: "max-height 0.2s" }}>
             <button onClick={() => setSourceListOpen(!sourceListOpen)}
-              className="flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 shrink-0">
+              className="flex items-center justify-between px-3 py-2.5 text-xs font-medium text-gray-600 bg-gray-50/80 hover:bg-gray-100 shrink-0 transition-colors">
               <span>근거 블록 ({sourceBlocks.length}){sourceFilter && ` - ${filteredSourceBlocks.length}건`}</span>
               <span className="text-gray-400">{sourceListOpen ? "▼" : "▶"}</span>
             </button>
@@ -504,8 +517,8 @@ export default function RequirementDetailPage() {
                   return (
                     <div key={block.id}
                       id={"source-block-" + block.id}
-                      className={`rounded p-2.5 cursor-pointer transition-all text-xs ${typeStyle} ${
-                        isActive ? "ring-2 ring-orange-400 shadow-sm" : "hover:shadow-sm"
+                      className={`rounded-lg p-2.5 cursor-pointer transition-all text-xs border ${typeStyle} ${
+                        isActive ? "ring-2 ring-indigo-300 border-indigo-200 shadow-md bg-indigo-50/30" : "border-transparent hover:border-gray-200 hover:shadow-sm"
                       }`}
                       onClick={() => handleSourceBlockClick(block)}>
                       <div className="flex items-center gap-1.5 mb-1">
@@ -532,8 +545,15 @@ export default function RequirementDetailPage() {
                         <div className="mt-1.5 flex items-center gap-2 text-[10px]">
                           <span className="text-orange-600">PDF에서 위치 확인</span>
                           <span className="text-gray-300">→</span>
-                          <button onClick={(e) => { e.stopPropagation(); setCenterTab("analysis"); }}
-                            className="text-blue-600 hover:underline">AI 해석 보기</button>
+                          <button onClick={(e) => {
+                            e.stopPropagation();
+                            const el = document.getElementById("section-analysis");
+                            if (el) {
+                              el.scrollIntoView({ behavior: "smooth", block: "start" });
+                              el.classList.add("bg-blue-50");
+                              setTimeout(() => el.classList.remove("bg-blue-50"), 800);
+                            }
+                          }} className="text-blue-600 hover:underline">AI 해석 보기</button>
                           <span className="text-gray-300">→</span>
                           <span className="text-gray-400">우측에서 검토</span>
                         </div>
@@ -546,57 +566,118 @@ export default function RequirementDetailPage() {
           </div>
         </div>
 
-        {/* ═══ CENTER: Basic Info + AI Analysis ═══ */}
+        {/* ═══ CENTER: 원문 + AI 분석 (연속 스크롤) ═══ */}
         <div className="flex-1 min-w-0 lg:min-w-[260px] flex flex-col min-h-0">
-          <nav className="flex gap-1 border-b mb-2 shrink-0">
-            {CENTER_TABS.map((t) => (
-              <button key={t.key} onClick={() => setCenterTab(t.key)}
-                className={`px-3 py-1.5 text-xs border-b-2 transition-colors ${
-                  centerTab === t.key ? "border-blue-600 text-blue-600 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}>
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          <div ref={centerScrollRef} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 overflow-auto flex-1 min-h-0 space-y-5">
 
-          <div className="bg-white rounded border p-4 overflow-auto flex-1 min-h-0">
-            {centerTab === "basic" && (
-              <BasicTab req={req} editing={editing} editForm={editForm} setEditForm={setEditForm}
-                canEdit={canEdit} saving={saving}
-                onStartEdit={startEdit} onSave={saveEdit} onCancel={() => setEditing(false)} />
+            {/* ── 원문 / 기본 정보 ────────────────────────────── */}
+            <div id="section-original" className="transition-colors duration-500 rounded -mx-1 px-1" />
+            <BasicTab req={req} editing={editing} editForm={editForm} setEditForm={setEditForm}
+              canEdit={canEdit} saving={saving}
+              onStartEdit={startEdit} onSave={saveEdit} onCancel={() => setEditing(false)} />
+
+            <hr className="border-gray-100" />
+
+            {/* ── AI 분석 ────────────────────────────────────── */}
+            <div id="section-analysis" className="transition-colors duration-500 rounded -mx-1 px-1" />
+            <AnalysisTab analysis={analysis} editing={analysisEditing} form={analysisForm}
+              setForm={setAnalysisForm} canEdit={canEdit} saving={saving}
+              onStartEdit={startAnalysisEdit} onSave={saveAnalysis} onCancel={() => setAnalysisEditing(false)}
+              projectId={projectId} requirementId={requirementId}
+              onInsightRefresh={() => {
+                requirementApi.getAnalysis(projectId, requirementId).then(setAnalysis).catch(() => {});
+              }} />
+
+            {/* ── 체크리스트 (접이식) ─────────────────────────── */}
+            <div id="section-checklist" />
+            {linkedItems.length > 0 && (
+              <details className="border border-gray-100 rounded-xl overflow-hidden">
+                <summary className="px-4 py-2.5 text-xs font-medium text-gray-500 bg-gray-50/60 cursor-pointer hover:bg-gray-100/80 transition-colors select-none">
+                  체크리스트 ({linkedItems.length})
+                </summary>
+                <div className="p-3">
+                  <ChecklistTab items={linkedItems} projectId={projectId} canEdit={canEdit}
+                    onStatusChange={async (checklistId, itemId, status) => {
+                      await checklistApi.changeItemStatus(projectId, checklistId, itemId, { status });
+                      loadLinkedChecklist();
+                    }} />
+                </div>
+              </details>
             )}
-            {centerTab === "analysis" && (
-              <AnalysisTab analysis={analysis} editing={analysisEditing} form={analysisForm}
-                setForm={setAnalysisForm} canEdit={canEdit} saving={saving}
-                onStartEdit={startAnalysisEdit} onSave={saveAnalysis} onCancel={() => setAnalysisEditing(false)} />
-            )}
-            {centerTab === "checklist" && (
-              <ChecklistTab items={linkedItems} projectId={projectId} canEdit={canEdit}
-                onStatusChange={async (checklistId, itemId, status) => {
-                  await checklistApi.changeItemStatus(projectId, checklistId, itemId, { status });
-                  loadLinkedChecklist();
-                }} />
-            )}
-            {centerTab === "history" && (
-              <HistoryTab activities={activities} projectId={projectId} />
+
+            {/* ── 이력 (접이식) ────────────────────────────────── */}
+            <div id="section-activity" />
+            {activities.length > 0 && (
+              <details className="border border-gray-100 rounded-xl overflow-hidden">
+                <summary className="px-4 py-2.5 text-xs font-medium text-gray-500 bg-gray-50/60 cursor-pointer hover:bg-gray-100/80 transition-colors select-none">
+                  활동 이력 ({activities.length})
+                </summary>
+                <div className="p-3">
+                  <HistoryTab activities={activities} projectId={projectId} />
+                </div>
+              </details>
             )}
           </div>
         </div>
 
-        {/* ═══ RIGHT: Human Review ═══ */}
-        <div className="w-full lg:w-[22%] lg:min-w-[200px] flex flex-col min-h-0 lg:shrink-0">
-          <div className="text-xs font-medium text-gray-700 border-b pb-1.5 mb-2 shrink-0 flex items-center gap-2">
-            <span>검토</span>
-            <StatusBadge value={review?.review_status || "NOT_REVIEWED"} />
+        {/* ═══ RIGHT: 검토 + 액션 (sticky) ═══ */}
+        <div className="w-full lg:w-[24%] lg:min-w-[220px] lg:shrink-0">
+         <div className="lg:sticky lg:top-2 flex flex-col gap-2.5">
+
+          {/* ── 섹션 네비게이션 ──────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 text-[10px]">
+              <span className="text-gray-400">이동:</span>
+              {[
+                { id: "section-original", label: "원문" },
+                { id: "section-analysis", label: "AI분석" },
+                { id: "section-checklist", label: "체크" },
+                { id: "section-activity", label: "이력" },
+              ].map(s => (
+                <button key={s.id} onClick={() => {
+                  document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                  className={`px-2 py-1 rounded-md transition-all ${
+                    activeSection === s.id
+                      ? "bg-indigo-600 text-white font-semibold shadow-sm"
+                      : "bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600"
+                  }`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="bg-white rounded border p-3 overflow-auto flex-1 min-h-0">
-            <ReviewPanel review={review} canReview={canReview} saving={saving}
-              comment={reviewComment} setComment={setReviewComment}
-              onChangeStatus={handleReviewStatus}
-              memberNameMap={memberNameMap} />
+
+          {/* ── 검토 상태 패널 ───────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col min-h-0">
+            <div className="text-xs font-medium text-gray-600 border-b border-gray-100 px-3 py-2.5 shrink-0 flex items-center gap-2">
+              <span>검토</span>
+              <StatusBadge value={review?.review_status || "NOT_REVIEWED"} />
+            </div>
+            <div className="p-3 overflow-auto flex-1 min-h-0">
+              <ReviewPanel review={review} canReview={canReview} saving={saving}
+                comment={reviewComment} setComment={setReviewComment}
+                onChangeStatus={handleReviewStatus}
+                memberNameMap={memberNameMap} />
+            </div>
           </div>
-          {/* 하단 네비게이션 */}
-          <div className="flex items-center justify-between mt-2 shrink-0">
+
+          {/* ── AI 재분석 액션 ────────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2 shrink-0">
+            <div className="text-xs font-medium text-gray-600">AI 재분석</div>
+            <AnalysisTab analysis={null} editing={false} form={{}} setForm={() => {}}
+              canEdit={canEdit} saving={saving}
+              onStartEdit={() => {}} onSave={() => {}} onCancel={() => {}}
+              projectId={projectId} requirementId={requirementId}
+              onInsightRefresh={() => {
+                requirementApi.getAnalysis(projectId, requirementId).then(setAnalysis).catch(() => {});
+              }}
+              renderOnlyActions
+            />
+          </div>
+
+          {/* ── 하단 네비게이션 ───────────────────────────────── */}
+          <div className="flex items-center justify-between shrink-0">
             <button onClick={() => prevReq && navigateTo(prevReq.id)} disabled={!prevReq}
               className="text-xs text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed">
               &larr; 이전
@@ -607,6 +688,7 @@ export default function RequirementDetailPage() {
               다음 &rarr;
             </button>
           </div>
+         </div>{/* end sticky */}
         </div>
       </div>
     </div>
@@ -684,9 +766,221 @@ function BasicTab({ req, editing, editForm, setEditForm, canEdit, saving, onStar
 }
 
 // ── Analysis Tab (AI 분석 -- 사람 검토와 분리) ───────────────────────
-function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStartEdit, onSave, onCancel }: any) {
+function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStartEdit, onSave, onCancel,
+  projectId, requirementId, onInsightRefresh, renderOnlyActions }: any) {
+
+  // ── 재분석 상태 ──
+  const [reanalyzeState, setReanalyzeState] = useState<
+    "idle" | "requesting" | "polling" | "completed" | "failed" | "cache_hit" | "conflict"
+  >("idle");
+  const [reanalyzeJobId, setReanalyzeJobId] = useState<string | null>(null);
+  const [reanalyzeMsg, setReanalyzeMsg] = useState("");
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── 재분석 이력 ──
+  const [jobHistory, setJobHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const loadHistory = useCallback(() => {
+    setHistoryLoading(true);
+    requirementApi.reanalyzeHistory(projectId, requirementId)
+      .then((items) => setJobHistory(items || []))
+      .catch(() => setJobHistory([]))
+      .finally(() => setHistoryLoading(false));
+  }, [projectId, requirementId]);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // 폴링 정리
+  useEffect(() => {
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, []);
+
+  const startReanalyze = async () => {
+    setReanalyzeState("requesting");
+    setReanalyzeMsg("");
+    try {
+      const result = await requirementApi.reanalyze(projectId, requirementId);
+      setReanalyzeJobId(result.analysis_job_id);
+      setReanalyzeState("polling");
+      setReanalyzeMsg("재분석 진행 중...");
+      // 폴링 시작
+      pollJobStatus(result.analysis_job_id);
+    } catch (err: any) {
+      if (err?.status === 409) {
+        setReanalyzeState("conflict");
+        setReanalyzeMsg(err.message || "이미 진행 중인 재분석이 있습니다.");
+      } else {
+        setReanalyzeState("failed");
+        setReanalyzeMsg(err.message || "재분석 요청 실패");
+      }
+    }
+  };
+
+  const pollJobStatus = (jobId: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    let attempts = 0;
+    pollingRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const job = await analysisJobApi.get(projectId, jobId);
+        if (job.status === "COMPLETED") {
+          clearInterval(pollingRef.current!);
+          pollingRef.current = null;
+          if (job.cache_hit) {
+            setReanalyzeState("cache_hit");
+            setReanalyzeMsg("변경 없음 - 기존 결과를 재사용합니다.");
+          } else {
+            setReanalyzeState("completed");
+            setReanalyzeMsg("재분석 완료");
+            onInsightRefresh?.();
+          }
+          loadHistory();
+        } else if (job.status === "FAILED") {
+          clearInterval(pollingRef.current!);
+          pollingRef.current = null;
+          setReanalyzeState("failed");
+          setReanalyzeMsg(job.error_message || "재분석 실패");
+          loadHistory();
+        } else {
+          const stepLabels: Record<string, string> = {
+            LOADING_REQUIREMENT: "요구사항 로드",
+            LOADING_SOURCES: "원문 근거 로드",
+            CHECKING_CACHE: "캐시 확인",
+            BUILDING_PROMPT: "프롬프트 구성",
+            CALLING_AI: "AI 분석 호출 중",
+            PARSING_RESPONSE: "응답 분석",
+            SAVING_INSIGHT: "결과 저장",
+            DONE: "완료 처리",
+          };
+          const stepLabel = stepLabels[job.progress_step] || "";
+          setReanalyzeMsg(`재분석 진행 중... ${job.progress || 0}%${stepLabel ? " — " + stepLabel : ""}`);
+        }
+      } catch {
+        // 네트워크 오류는 무시하고 계속 폴링
+      }
+      if (attempts > 60) { // 2분 타임아웃
+        clearInterval(pollingRef.current!);
+        pollingRef.current = null;
+        setReanalyzeState("failed");
+        setReanalyzeMsg("폴링 타임아웃 — 이력 탭에서 상태를 확인하세요.");
+      }
+    }, 2000);
+  };
+
+  const ReanalyzeButton = () => {
+    if (!canEdit) return null;
+
+    const isActive = reanalyzeState === "requesting" || reanalyzeState === "polling";
+
+    return (
+      <div className="space-y-1.5">
+        <button onClick={startReanalyze}
+          disabled={isActive || saving}
+          className={`text-xs px-3 py-1.5 rounded font-medium transition-colors disabled:opacity-50 ${
+            isActive
+              ? "bg-gray-200 text-gray-500 cursor-wait"
+              : "bg-indigo-600 text-white hover:bg-indigo-700"
+          }`}>
+          {isActive ? "재분석 중..." : "AI 재분석"}
+        </button>
+        {reanalyzeMsg && (
+          <ReanalyzeStatusBanner state={reanalyzeState} message={reanalyzeMsg}
+            onDismiss={() => { setReanalyzeState("idle"); setReanalyzeMsg(""); }} />
+        )}
+      </div>
+    );
+  };
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const ReanalyzeHistory = () => {
+    if (historyLoading || jobHistory.length === 0) return null;
+
+    const latest = jobHistory[0];
+
+    return (
+      <div className="border-t pt-2 mt-1 space-y-1.5">
+        {/* 최근 1건 요약 */}
+        <div className="flex items-center gap-2 flex-wrap text-[10px] text-gray-400">
+          <span className="text-gray-500 font-medium">최근 재분석</span>
+          <JobStatusBadge job={latest} />
+          <span>{formatJobTime(latest)}</span>
+          {latest.analysis_prompt_version && (
+            <span className="text-gray-300">v.{latest.analysis_prompt_version}</span>
+          )}
+          {latest.status === "FAILED" && (
+            <>
+              {latest.progress_step && (
+                <span className="text-red-300">@{latest.progress_step}</span>
+              )}
+              {latest.error_message && (
+                <span className="text-red-400 truncate max-w-[200px]" title={latest.error_message}>
+                  {latest.error_message}
+                </span>
+              )}
+            </>
+          )}
+          {jobHistory.length > 1 && (
+            <button onClick={() => setHistoryOpen(!historyOpen)}
+              className="text-blue-500 hover:text-blue-700 font-medium ml-auto">
+              {historyOpen ? "접기" : `이력 보기 (${jobHistory.length}건)`}
+            </button>
+          )}
+        </div>
+
+        {/* 이력 목록 */}
+        {historyOpen && jobHistory.length > 1 && (
+          <div className="bg-gray-50 rounded border divide-y divide-gray-100 text-[10px]">
+            {jobHistory.map((job: any, i: number) => (
+              <div key={job.id} className="flex items-center gap-2 px-2.5 py-1.5 flex-wrap">
+                <span className="text-gray-300 w-4 text-right shrink-0">{i + 1}</span>
+                <JobStatusBadge job={job} />
+                <span className="text-gray-500">{formatJobTime(job)}</span>
+                {job.analysis_prompt_version && (
+                  <span className="text-gray-300">v.{job.analysis_prompt_version}</span>
+                )}
+                {job.result_count != null && (
+                  <span className="text-gray-300">{job.result_count}건</span>
+                )}
+                {job.status === "FAILED" && (
+                  <>
+                    {job.progress_step && (
+                      <span className="text-red-300">@{job.progress_step}</span>
+                    )}
+                    {job.error_message && (
+                      <span className="text-red-400 truncate max-w-[180px]" title={job.error_message}>
+                        {job.error_message}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 우측 패널용: 재분석 버튼 + 이력만 렌더링
+  if (renderOnlyActions) {
+    return (
+      <div className="space-y-2">
+        <ReanalyzeButton />
+        <ReanalyzeHistory />
+      </div>
+    );
+  }
+
   if (!analysis || !analysis.requirement_id) {
-    return <div className="text-sm text-gray-400 py-8 text-center">AI 분석 결과가 없습니다. 문서 탭에서 분석을 실행하세요.</div>;
+    return (
+      <div className="space-y-3">
+        <div className="text-sm text-gray-400 py-8 text-center">AI 분석 결과가 없습니다.</div>
+        <div className="text-center"><ReanalyzeButton /></div>
+        <ReanalyzeHistory />
+      </div>
+    );
   }
 
   const hasContent = analysis.fact_summary || analysis.interpretation_summary
@@ -698,14 +992,15 @@ function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStar
     return (
       <div className="space-y-3">
         <div className="text-sm text-gray-400 py-8 text-center">
-          분석 결과가 아직 채워지지 않았습니다.<br />
-          문서 탭에서 재분석을 실행하면 AI 분석 내용이 생성됩니다.
+          분석 결과가 아직 채워지지 않았습니다.
         </div>
-        {canEdit && (
-          <div className="text-center">
+        <div className="flex justify-center gap-3">
+          <ReanalyzeButton />
+          {canEdit && (
             <button onClick={onStartEdit} className="text-xs text-blue-600 hover:underline">직접 입력</button>
-          </div>
-        )}
+          )}
+        </div>
+        <ReanalyzeHistory />
       </div>
     );
   }
@@ -776,8 +1071,8 @@ function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStar
 
   return (
     <div className="space-y-4 text-sm">
-      {/* 헤더: 상태 배지들 */}
-      <div className="flex justify-between items-center">
+      {/* 헤더: 상태 배지들 + 재분석 버튼 */}
+      <div className="flex justify-between items-start">
         <div className="flex gap-2 items-center flex-wrap">
           <span className="font-semibold">AI 분석 결과</span>
           <StatusBadge value={analysis.fact_level || "REVIEW_NEEDED"} />
@@ -785,10 +1080,41 @@ function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStar
             질의 {analysis.query_needed ? "필요" : "불필요"}
           </span>
         </div>
-        {canEdit && (
-          <button onClick={onStartEdit} className="text-xs text-blue-600 hover:underline">수정</button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <ReanalyzeButton />
+          {canEdit && (
+            <button onClick={onStartEdit} className="text-xs text-blue-600 hover:underline">수정</button>
+          )}
+        </div>
       </div>
+
+      {/* ── 품질 검증 사유 (REVIEW_NEEDED 시) ── */}
+      {analysis.quality_issues && analysis.quality_issues.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-1">
+          <div className="text-xs font-semibold text-amber-700">검토 필요 사유</div>
+          {analysis.quality_issues.map((issue: any, i: number) => {
+            const severity = issue.severity || (typeof issue === "string" && issue.startsWith("CRITICAL:") ? "CRITICAL" : "MINOR");
+            const message = issue.message || (typeof issue === "string" ? issue.replace(/^(CRITICAL|MINOR):\s*/, "") : "");
+            const code = issue.code || "";
+            const isCritical = severity === "CRITICAL";
+            return (
+              <div key={i} className={`text-[11px] flex items-center gap-1.5 ${
+                isCritical ? "text-red-600" : "text-amber-600"
+              }`}>
+                <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold ${
+                  isCritical ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                }`}>
+                  {isCritical ? "치명" : "일반"}
+                </span>
+                <span>{message}</span>
+                {code && code !== "LEGACY" && (
+                  <span className="text-[9px] text-gray-400 font-mono">{code}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── 섹션 1: 사실 확인 ── */}
       <AnalysisSection title="사실 확인" color="green">
@@ -854,42 +1180,111 @@ function AnalysisTab({ analysis, editing, form, setForm, canEdit, saving, onStar
           <div className="text-[10px] text-gray-400 mt-1">이 초안은 AI가 생성한 것으로 실무자 검토 후 사용하세요.</div>
         </AnalysisSection>
       )}
+
+      {/* 재분석 이력 */}
+      <ReanalyzeHistory />
+    </div>
+  );
+}
+
+function JobStatusBadge({ job }: { job: any }) {
+  const styles: Record<string, string> = {
+    COMPLETED: "bg-green-100 text-green-700",
+    FAILED: "bg-red-100 text-red-700",
+    PENDING: "bg-blue-100 text-blue-700",
+    RUNNING: "bg-blue-100 text-blue-700",
+  };
+  const labels: Record<string, string> = {
+    COMPLETED: "완료", FAILED: "실패", PENDING: "대기", RUNNING: "진행중",
+  };
+  return (
+    <>
+      <span className={`px-1.5 py-0.5 rounded font-medium text-[10px] ${styles[job.status] || "bg-gray-100 text-gray-600"}`}>
+        {labels[job.status] || job.status}
+      </span>
+      {job.cache_hit && (
+        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium text-[10px]">캐시</span>
+      )}
+    </>
+  );
+}
+
+function formatJobTime(job: any): string {
+  const ts = job.finished_at || job.created_at;
+  if (!ts) return "";
+  return new Date(ts).toLocaleString("ko-KR", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function ReanalyzeStatusBanner({ state, message, onDismiss }: {
+  state: string; message: string; onDismiss: () => void;
+}) {
+  const styles: Record<string, string> = {
+    polling: "bg-blue-50 border-blue-200 text-blue-700",
+    requesting: "bg-blue-50 border-blue-200 text-blue-700",
+    completed: "bg-green-50 border-green-200 text-green-700",
+    cache_hit: "bg-gray-50 border-gray-200 text-gray-600",
+    failed: "bg-red-50 border-red-200 text-red-700",
+    conflict: "bg-yellow-50 border-yellow-200 text-yellow-700",
+  };
+  const icons: Record<string, string> = {
+    polling: "\u23F3", requesting: "\u23F3", completed: "\u2705",
+    cache_hit: "\u267B\uFE0F", failed: "\u274C", conflict: "\u26A0\uFE0F",
+  };
+  const isActive = state === "polling" || state === "requesting";
+
+  return (
+    <div className={`flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border ${styles[state] || "bg-gray-50 border-gray-200 text-gray-600"}`}>
+      <span>{icons[state] || ""}</span>
+      <span className="flex-1">{message}</span>
+      {isActive && <span className="animate-pulse text-[10px]">...</span>}
+      {!isActive && (
+        <button onClick={onDismiss} className="text-gray-400 hover:text-gray-600 text-xs ml-1">&times;</button>
+      )}
     </div>
   );
 }
 
 function AnalysisSection({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
   const borderColors: Record<string, string> = {
-    green: "border-green-200", yellow: "border-yellow-200", blue: "border-blue-200",
-    purple: "border-purple-200", gray: "border-gray-200", red: "border-red-200",
+    green: "border-green-100", yellow: "border-yellow-100", blue: "border-blue-100",
+    purple: "border-purple-100", gray: "border-gray-100", red: "border-red-100",
   };
   const headerColors: Record<string, string> = {
     green: "text-green-700", yellow: "text-yellow-700", blue: "text-blue-700",
-    purple: "text-purple-700", gray: "text-gray-700", red: "text-red-700",
+    purple: "text-purple-700", gray: "text-gray-600", red: "text-red-700",
+  };
+  const dotColors: Record<string, string> = {
+    green: "bg-green-400", yellow: "bg-yellow-400", blue: "bg-blue-400",
+    purple: "bg-purple-400", gray: "bg-gray-300", red: "bg-red-400",
   };
   return (
-    <div className={`border ${borderColors[color] || "border-gray-200"} rounded-lg overflow-hidden`}>
-      <div className={`text-xs font-semibold px-3 py-1.5 bg-gray-50 ${headerColors[color] || "text-gray-700"}`}>{title}</div>
-      <div className="px-3 py-2 space-y-2">{children}</div>
+    <div className={`border ${borderColors[color] || "border-gray-100"} rounded-xl overflow-hidden`}>
+      <div className={`text-[11px] font-semibold px-4 py-2 bg-gray-50/60 ${headerColors[color] || "text-gray-600"} flex items-center gap-1.5`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${dotColors[color] || "bg-gray-300"}`} />
+        {title}
+      </div>
+      <div className="px-4 py-3 space-y-2.5">{children}</div>
     </div>
   );
 }
 
 function SectionItem({ label, value, color, required }: { label: string; value?: string | null; color: string; required?: boolean }) {
   const bgColors: Record<string, string> = {
-    green: "bg-green-50", yellow: "bg-yellow-50", blue: "bg-blue-50",
-    purple: "bg-purple-50", gray: "bg-gray-50", red: "bg-red-50",
+    green: "bg-green-50/60", yellow: "bg-yellow-50/60", blue: "bg-blue-50/60",
+    purple: "bg-purple-50/60", gray: "bg-gray-50/60", red: "bg-red-50/60",
   };
   return (
     <div>
-      <div className="text-[11px] font-medium text-gray-500 mb-0.5 flex items-center gap-1">
+      <div className="text-[11px] font-medium text-gray-400 mb-1 flex items-center gap-1">
         {label}
-        {required && !value && <span className="text-[9px] bg-red-100 text-red-600 px-1 py-0.5 rounded">미생성</span>}
+        {required && !value && <span className="text-[9px] bg-red-50 text-red-500 border border-red-100 px-1 py-0.5 rounded-md">미생성</span>}
       </div>
       {value ? (
-        <div className={`${bgColors[color] || "bg-gray-50"} p-2.5 rounded text-sm whitespace-pre-wrap leading-relaxed`}>{value}</div>
+        <div className={`${bgColors[color] || "bg-gray-50/60"} p-3 rounded-lg text-[13px] whitespace-pre-wrap leading-relaxed text-gray-700`} style={{ maxWidth: "640px" }}>{value}</div>
       ) : (
-        <div className="text-xs text-gray-400 py-1 bg-gray-50 rounded px-2">
+        <div className="text-xs text-gray-300 py-1.5 bg-gray-50/40 rounded-lg px-3">
           {required ? "분석 재생성 필요" : "해당 없음"}
         </div>
       )}

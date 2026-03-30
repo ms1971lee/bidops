@@ -3,6 +3,7 @@ package com.bidops.domain.requirement.controller;
 import com.bidops.common.response.ApiResponse;
 import com.bidops.common.response.ListData;
 import com.bidops.common.response.MetaDto;
+import com.bidops.domain.analysis.dto.AnalysisJobDto;
 import com.bidops.domain.requirement.dto.*;
 import com.bidops.domain.requirement.enums.*;
 import com.bidops.domain.requirement.service.RequirementService;
@@ -25,6 +26,30 @@ public class RequirementController {
     // =========================================================================
 
     /**
+     * GET /projects/{projectId}/requirements/quality-stats
+     * 프로젝트 단위 품질 이슈 통계.
+     */
+    @GetMapping("/quality-stats")
+    @Operation(summary = "품질 이슈 통계 조회",
+               operationId = "getQualityStats",
+               tags = "RequirementAnalysis")
+    public ApiResponse<QualityStatsDto> getQualityStats(@PathVariable String projectId) {
+        return ApiResponse.ok(requirementService.getQualityStats(projectId));
+    }
+
+    /**
+     * GET /projects/{projectId}/requirements/reanalyze-status-map
+     * 프로젝트 내 requirement별 최근 재분석 상태 맵.
+     */
+    @GetMapping("/reanalyze-status-map")
+    @Operation(summary = "프로젝트 내 재분석 상태 맵",
+               operationId = "getReanalyzeStatusMap",
+               tags = "RequirementAnalysis")
+    public ApiResponse<ReanalyzeStatusMapDto> getReanalyzeStatusMap(@PathVariable String projectId) {
+        return ApiResponse.ok(requirementService.getReanalyzeStatusMap(projectId));
+    }
+
+    /**
      * GET /projects/{projectId}/requirements
      * operationId: listRequirements
      */
@@ -40,12 +65,15 @@ public class RequirementController {
             @RequestParam(name = "fact_level",        required = false) FactLevel                 factLevel,
             @RequestParam(name = "query_needed",      required = false) Boolean                   queryNeeded,
             @RequestParam(required = false)                             String                    keyword,
+            @RequestParam(name = "quality_issue_code", required = false) String                   qualityIssueCode,
+            @RequestParam(name = "quality_severity",   required = false) String                   qualitySeverity,
             @RequestParam(defaultValue = "1")                           int                       page,
             @RequestParam(defaultValue = "20")                          int                       size) {
 
         ListData<RequirementDto> data = requirementService.listRequirements(
                 projectId, category, mandatory, evidenceRequired,
-                analysisStatus, reviewStatus, factLevel, queryNeeded, keyword, page, size);
+                analysisStatus, reviewStatus, factLevel, queryNeeded, keyword,
+                qualityIssueCode, qualitySeverity, page, size);
         return ApiResponse.ok(data, MetaDto.of(page, size, data.getTotalCount()));
     }
 
@@ -89,6 +117,73 @@ public class RequirementController {
             @PathVariable String requirementId) {
 
         return ApiResponse.ok(requirementService.getSources(projectId, requirementId));
+    }
+
+    // =========================================================================
+    // tag: RequirementAnalysis — 단건 재분석
+    // =========================================================================
+
+    /**
+     * POST /projects/{projectId}/requirements/{requirementId}/reanalyze
+     * operationId: reanalyzeRequirementInsight
+     * 특정 requirement 1건만 재분석. RequirementInsight만 갱신, RequirementReview는 그대로 유지.
+     */
+    @PostMapping("/{requirementId}/reanalyze")
+    @Operation(summary = "요구사항 단건 재분석 (Insight만 갱신)",
+               operationId = "reanalyzeRequirementInsight",
+               tags = "RequirementAnalysis")
+    public ApiResponse<RequirementReanalyzeResponseDto> reanalyzeInsight(
+            @PathVariable String projectId,
+            @PathVariable String requirementId) {
+
+        return ApiResponse.ok(requirementService.reanalyzeRequirementInsight(projectId, requirementId));
+    }
+
+    /**
+     * POST /projects/{projectId}/requirements/batch-reanalyze
+     * 선택한 requirement들에 대해 일괄 재분석 요청.
+     */
+    @PostMapping("/batch-reanalyze")
+    @Operation(summary = "요구사항 일괄 재분석",
+               operationId = "batchReanalyze",
+               tags = "RequirementAnalysis")
+    public ApiResponse<BatchReanalyzeResponseDto> batchReanalyze(
+            @PathVariable String projectId,
+            @RequestBody @Valid BatchReanalyzeRequestDto request) {
+
+        return ApiResponse.ok(requirementService.batchReanalyze(projectId, request.getRequirementIds()));
+    }
+
+    /**
+     * GET /projects/{projectId}/requirements/batch-reanalyze-status?job_ids=id1,id2,...
+     * batch reanalyze로 생성된 job들의 집계 상태 조회.
+     */
+    @GetMapping("/batch-reanalyze-status")
+    @Operation(summary = "일괄 재분석 진행 상태 조회",
+               operationId = "getBatchReanalyzeStatus",
+               tags = "RequirementAnalysis")
+    public ApiResponse<BatchReanalyzeStatusDto> getBatchReanalyzeStatus(
+            @PathVariable String projectId,
+            @RequestParam(name = "job_ids") java.util.List<String> jobIds) {
+
+        return ApiResponse.ok(requirementService.getBatchReanalyzeStatus(projectId, jobIds));
+    }
+
+    /**
+     * GET /projects/{projectId}/requirements/{requirementId}/reanalyze-history
+     * 최근 REQUIREMENT_INSIGHT_REANALYZE Job 목록 조회 (최대 10건).
+     */
+    @GetMapping("/{requirementId}/reanalyze-history")
+    @Operation(summary = "재분석 이력 목록 조회 (최대 10건)",
+               operationId = "getReanalyzeHistory",
+               tags = "RequirementAnalysis")
+    public ApiResponse<java.util.List<AnalysisJobDto>> getReanalyzeHistory(
+            @PathVariable String projectId,
+            @PathVariable String requirementId,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        return ApiResponse.ok(requirementService.getReanalyzeHistory(projectId, requirementId,
+                Math.min(limit, 50)));
     }
 
     // =========================================================================
