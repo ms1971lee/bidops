@@ -399,393 +399,207 @@ export default function RequirementsPage() {
   const progressPct = total > 0 ? Math.round((reviewedCount / total) * 100) : 0;
   const firstNotReviewed = allItems.find((r: any) => !r.review_status || r.review_status === "NOT_REVIEWED");
 
+  const displayItems = applyReanalyzeFilterSort(failedReqFilter ? items.filter((r: any) => failedReqFilter.has(r.id)) : items);
+
+  const failedReanalyzeCount = Object.values(reanalyzeMap).filter((s: any) => s.status === "FAILED").length;
+
   return (
     <div className="space-y-3">
-      {/* 커버리지 감사 요약 */}
-      {coverage && coverage.expected_count > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-600">추출 커버리지</span>
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-              <div className={`h-1.5 rounded-full transition-all ${coverage.coverage_rate >= 90 ? "bg-emerald-500" : coverage.coverage_rate >= 70 ? "bg-amber-400" : "bg-rose-400"}`}
-                style={{ width: `${Math.min(coverage.coverage_rate, 100)}%` }} />
-            </div>
-            <span className={`text-xs font-bold tabular-nums ${coverage.coverage_rate >= 90 ? "text-emerald-600" : coverage.coverage_rate >= 70 ? "text-amber-600" : "text-rose-600"}`}>
-              {coverage.coverage_rate}%
-            </span>
+      {/* ═══ KPI 상단 바 ═══ */}
+      <div className="grid grid-cols-5 gap-2">
+        <KpiCard label="전체" value={total} onClick={resetFilters} />
+        <KpiCard label="검토 필요" value={stat.notReviewed + stat.needsUpdate} accent="amber"
+          active={reviewFilter === "NOT_REVIEWED" || reviewFilter === "NEEDS_UPDATE"} />
+        <KpiCard label="재분석 실패" value={failedReanalyzeCount} accent="rose"
+          active={reanalyzeFilter === "FAILED"}
+          onClick={() => { setReanalyzeFilter(reanalyzeFilter === "FAILED" ? "" : "FAILED"); setPage(1); }} />
+        <KpiCard label="품질 치명" value={Object.values(reanalyzeMap).length > 0 ? stat.queryNeeded : 0} accent="rose" />
+        <KpiCard label="현재 필터" value={displayItems.length} sub={hasActive ? "필터 적용 중" : "전체"} accent="indigo" />
+      </div>
+
+      {/* ═══ 2열: 좌측 필터 + 우측 목록 ═══ */}
+      <div className="flex gap-3" style={{ minHeight: "calc(100vh - 220px)" }}>
+
+        {/* ─── 좌측: 필터 패널 ─── */}
+        <aside className="w-56 shrink-0 space-y-2 hidden lg:block">
+          {/* 검색 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+            <input value={searchInput} onChange={setSearchInput ? (e) => setSearchInput(e.target.value) : undefined}
+              onKeyDown={(e) => e.key === "Enter" && applyKeywordNow()}
+              placeholder="키워드 검색..."
+              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 focus:outline-none transition-colors" />
           </div>
-          <div className="flex gap-4 text-[11px]">
-            <span className="text-gray-400">원문 <b className="text-gray-600">{coverage.expected_count}</b></span>
-            <span className="text-gray-400">추출 <b className="text-blue-600">{coverage.extracted_count}</b></span>
-            <span className="text-gray-400">저장 <b className="text-emerald-600">{coverage.saved_count}</b></span>
-            {coverage.merged_count > 0 && <span className="text-violet-500">병합 <b>{coverage.merged_count}</b></span>}
-            {coverage.missing_count > 0 && (
-              <span className="text-rose-500">누락 <b>{coverage.missing_count}</b>
-                {coverage.missing_req_nos && (
-                  <span className="text-rose-300 ml-1 font-mono text-[10px]">
-                    ({JSON.parse(coverage.missing_req_nos).join(", ")})
-                  </span>
+
+          {/* 필터 섹션 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-3">
+            <FilterSection title="검토 상태" options={REVIEW_FILTERS.filter(f => f.value)}
+              value={reviewFilter} onChange={(v) => { setReviewFilter(v); setPage(1); }} />
+            <FilterSection title="카테고리" options={CATEGORY_OPTIONS.filter(o => o.value).slice(0, 8)}
+              value={categoryFilter} onChange={(v) => { setCategoryFilter(v); setPage(1); }} />
+            <FilterSection title="근거 수준" options={FACT_OPTIONS.filter(o => o.value)}
+              value={factLevelFilter} onChange={(v) => { setFactLevelFilter(v); setPage(1); }} />
+
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">옵션</div>
+              <ToggleFilter label="필수 항목만" active={mandatoryFilter === "true"}
+                onClick={() => { setMandatoryFilter(mandatoryFilter === "true" ? "" : "true"); setPage(1); }} />
+              <ToggleFilter label="질의 필요만" active={queryNeededFilter === "true"}
+                onClick={() => { setQueryNeededFilter(queryNeededFilter === "true" ? "" : "true"); setPage(1); }} />
+              <ToggleFilter label="실패 우선 정렬" active={!!reanalyzeSort}
+                onClick={() => setReanalyzeSort(reanalyzeSort ? "" : "failed_first")} />
+            </div>
+
+            <FilterSection title="재분석 상태" options={[
+              { value: "FAILED", label: "실패" }, { value: "RUNNING", label: "진행중" },
+              { value: "COMPLETED", label: "완료" }, { value: "CACHE_HIT", label: "캐시" }, { value: "NONE", label: "없음" },
+            ]} value={reanalyzeFilter} onChange={(v) => { setReanalyzeFilter(v); setPage(1); }} />
+
+            {hasActive && (
+              <button onClick={resetFilters}
+                className="w-full text-[11px] text-gray-400 hover:text-indigo-600 py-1 transition-colors">
+                필터 전체 초기화
+              </button>
+            )}
+          </div>
+
+          {/* 프리셋 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-1.5">
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">프리셋</div>
+            {presets.map(p => (
+              <div key={p.name} className="flex items-center gap-1">
+                <button onClick={() => applyFilterSnapshot(p.filters)}
+                  className="flex-1 text-left px-2 py-1 rounded-lg text-[11px] text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors truncate">
+                  {p.name}
+                </button>
+                {!DEFAULT_PRESETS.some(d => d.name === p.name) && (
+                  <button onClick={() => deletePreset(p.name)} className="text-gray-300 hover:text-rose-500 text-[9px]">&times;</button>
                 )}
-              </span>
+              </div>
+            ))}
+            {hasActive && !showPresetSave && (
+              <button onClick={() => setShowPresetSave(true)}
+                className="w-full text-[11px] text-gray-400 hover:text-indigo-600 py-1 border border-dashed border-gray-200 rounded-lg transition-colors">
+                + 현재 필터 저장
+              </button>
             )}
-            {coverage.missing_count === 0 && coverage.expected_count > 0 && (
-              <span className="text-emerald-500 font-medium">누락 없음</span>
+            {showPresetSave && (
+              <div className="flex gap-1">
+                <input value={presetNameInput} onChange={e => setPresetNameInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && savePreset()}
+                  placeholder="이름" className="flex-1 border rounded-lg px-2 py-1 text-[11px] min-w-0" autoFocus />
+                <button onClick={savePreset} className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[11px]">저장</button>
+                <button onClick={() => { setShowPresetSave(false); setPresetNameInput(""); }} className="text-gray-400">&times;</button>
+              </div>
             )}
           </div>
-          {coverage.category_summary && (() => {
-            try {
-              const cats = JSON.parse(coverage.category_summary);
-              const entries = Object.entries(cats).filter(([,v]: any) => v.expected > 0);
-              if (entries.length === 0) return null;
-              return (
-                <div className="flex gap-1.5 flex-wrap">
-                  {entries.map(([k, v]: any) => (
-                    <span key={k} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${v.missing > 0 ? "bg-rose-50/60 text-rose-600 border-rose-100" : "bg-emerald-50/60 text-emerald-600 border-emerald-100"}`}>
-                      {k} {v.matched}/{v.expected} {v.missing > 0 && `(-${v.missing})`}
-                    </span>
-                  ))}
-                </div>
-              );
-            } catch { return null; }
-          })()}
-        </div>
-      )}
+        </aside>
 
-      {/* 검토 진행률 + 요약 카드 */}
-      {total > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-          {/* 진행률 바 */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-600 shrink-0">검토 진행률</span>
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-              <div className="h-1.5 rounded-full transition-all duration-500 bg-gradient-to-r from-indigo-400 to-emerald-400"
-                style={{ width: `${progressPct}%` }} />
-            </div>
-            <span className="text-xs font-bold text-gray-600 shrink-0 min-w-[40px] text-right tabular-nums">{progressPct}%</span>
-          </div>
+        {/* ─── 우측: 메인 목록 ─── */}
+        <div className="flex-1 min-w-0 space-y-2">
 
-          {/* 추출 커버리지 */}
-          {(stat.merged > 0 || estimatedOriginalCount > total) && (
-            <div className="flex items-center gap-3 bg-violet-50/50 border border-violet-100 rounded-lg px-3 py-2 text-[11px]">
-              <span className="text-violet-600 font-medium">커버리지</span>
-              <span className="text-violet-500">원문 {estimatedOriginalCount} → 추출 {total}</span>
-              {stat.merged > 0 && <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md font-semibold">병합 {stat.merged}</span>}
-            </div>
-          )}
-
-          {/* 상태별 카드 */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
-            <StatCard label="전체" count={total} color="bg-gray-50 text-gray-600" onClick={resetFilters} />
-            <StatCard label="미검토" count={stat.notReviewed} color="bg-slate-50 text-slate-600"
-              active={reviewFilter === "NOT_REVIEWED"}
-              onClick={() => { setReviewFilter("NOT_REVIEWED"); setPage(1); }} />
-            <StatCard label="승인" count={stat.approved} color="bg-emerald-50 text-emerald-600"
-              active={reviewFilter === "APPROVED"}
-              onClick={() => { setReviewFilter("APPROVED"); setPage(1); }} />
-            <StatCard label="수정필요" count={stat.needsUpdate} color="bg-rose-50 text-rose-600"
-              active={reviewFilter === "NEEDS_UPDATE"}
-              onClick={() => { setReviewFilter("NEEDS_UPDATE"); setPage(1); }} />
-            <StatCard label="필수" count={stat.mandatory} color="bg-rose-50/60 text-rose-600"
-              active={mandatoryFilter === "true"}
-              onClick={() => { setMandatoryFilter(mandatoryFilter === "true" ? "" : "true"); setPage(1); }} />
-            <StatCard label="질의필요" count={stat.queryNeeded} color="bg-amber-50 text-amber-600"
-              active={queryNeededFilter === "true"}
-              onClick={() => { setQueryNeededFilter(queryNeededFilter === "true" ? "" : "true"); setPage(1); }} />
-          </div>
-
-          {/* 빠른 액션 */}
-          <div className="flex gap-2 flex-wrap">
+          {/* 액션 바: 선택 + batch + 배너 */}
+          <div className="flex items-center gap-2 text-xs">
+            {items.length > 0 && (
+              <>
+                <label className="flex items-center gap-1 cursor-pointer text-gray-400">
+                  <input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length}
+                    onChange={(e) => { if (e.target.checked) setSelectedIds(new Set(items.map((r: any) => r.id))); else setSelectedIds(new Set()); }}
+                    className="w-3.5 h-3.5 rounded" />
+                  <span className="tabular-nums">{selectedIds.size}/{items.length}</span>
+                </label>
+                {selectedIds.size > 0 && (
+                  <button onClick={async () => {
+                    setBatchState("requesting"); setBatchResult(null);
+                    try {
+                      const result = await requirementApi.batchReanalyze(id, Array.from(selectedIds));
+                      setBatchResult(result); setBatchState("done"); setSelectedIds(new Set());
+                      if (result.created_job_ids?.length > 0) setBatchJobIds(result.created_job_ids);
+                    } catch (err: any) { setBatchResult({ error: err.message || "일괄 재분석 실패" }); setBatchState("done"); }
+                  }} disabled={batchState === "requesting"}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors ${batchState === "requesting" ? "bg-gray-200 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+                    {batchState === "requesting" ? "요청 중..." : `재분석 (${selectedIds.size})`}
+                  </button>
+                )}
+              </>
+            )}
+            {batchResult && batchState === "done" && (
+              <div className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-[11px] ${batchResult.error ? "bg-rose-50/50 border-rose-100 text-rose-600" : "bg-emerald-50/50 border-emerald-100 text-emerald-600"}`}>
+                {batchResult.error ? <span>{batchResult.error}</span> : <><span>생성 {batchResult.created_job_count}건</span>{batchResult.skipped_count > 0 && <span className="text-amber-600">제외 {batchResult.skipped_count}</span>}</>}
+                <button onClick={() => { setBatchResult(null); setBatchState("idle"); }} className="text-gray-400 hover:text-gray-600">&times;</button>
+              </div>
+            )}
             {stat.notReviewed > 0 && firstNotReviewed && (
               <button onClick={() => router.push(`/projects/${id}/requirements/${firstNotReviewed.id}?mode=review`)}
-                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm">
-                미검토 연속 검토 ({stat.notReviewed}건)
+                className="ml-auto text-[11px] px-3 py-1 rounded-lg font-medium bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm">
+                연속 검토 ({stat.notReviewed})
               </button>
-            )}
-            {stat.queryNeeded > 0 && (
-              <button onClick={() => { setQueryNeededFilter("true"); setReviewFilter(""); setPage(1); }}
-                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100 transition-colors">
-                질의 필요 항목
-              </button>
-            )}
-            {stat.needsUpdate > 0 && (
-              <button onClick={() => { setReviewFilter("NEEDS_UPDATE"); setPage(1); }}
-                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors">
-                수정 필요 항목
-              </button>
-            )}
-            {stat.queryNeeded > 0 && (
-              <Link href={`/projects/${id}/inquiries`}
-                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-violet-50 text-violet-600 border border-violet-100 hover:bg-violet-100 transition-colors">
-                질의리스트
-              </Link>
-            )}
-            {progressPct === 100 && (
-              <span className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
-                검토 완료
-              </span>
             )}
           </div>
-        </div>
-      )}
 
-      <FilterBar
-        toggleFilters={[{
-          label: "검토상태", options: REVIEW_FILTERS,
-          value: reviewFilter, onChange: (v) => { setReviewFilter(v); setPage(1); },
-        }]}
-        selectFilters={[
-          { label: "카테고리", options: CATEGORY_OPTIONS, value: categoryFilter, onChange: (v) => { setCategoryFilter(v); setPage(1); } },
-          { label: "근거수준", options: FACT_OPTIONS, value: factLevelFilter, onChange: (v) => { setFactLevelFilter(v); setPage(1); } },
-          { label: "필수여부", options: MANDATORY_OPTIONS, value: mandatoryFilter, onChange: (v) => { setMandatoryFilter(v); setPage(1); } },
-          { label: "질의필요", options: QUERY_OPTIONS, value: queryNeededFilter, onChange: (v) => { setQueryNeededFilter(v); setPage(1); } },
-        ]}
-        keyword={{ value: searchInput, onChange: setSearchInput, onSearch: applyKeywordNow, placeholder: "키워드 검색..." }}
-        hasActiveFilter={hasActive} onReset={resetFilters}
-        totalCount={totalCount}
-      />
+          {/* Active chips */}
+          <ActiveFilterChips
+            filters={[
+              reviewFilter && { label: `${REVIEW_FILTERS.find(f => f.value === reviewFilter)?.label || reviewFilter}`, color: "bg-indigo-50 text-indigo-700 border border-indigo-100", onRemove: () => { setReviewFilter(""); setPage(1); } },
+              categoryFilter && { label: `${CATEGORY_LABELS[categoryFilter] || categoryFilter}`, color: "bg-gray-50 text-gray-600 border border-gray-200", onRemove: () => { setCategoryFilter(""); setPage(1); } },
+              factLevelFilter && { label: `${factLevelFilter === "FACT" ? "확정" : factLevelFilter === "INFERENCE" ? "추론" : "검토필요"}`, color: "bg-amber-50 text-amber-600 border border-amber-100", onRemove: () => { setFactLevelFilter(""); setPage(1); } },
+              mandatoryFilter && { label: "필수", color: "bg-rose-50 text-rose-600 border border-rose-100", onRemove: () => { setMandatoryFilter(""); setPage(1); } },
+              queryNeededFilter && { label: "질의필요", color: "bg-amber-50 text-amber-600 border border-amber-100", onRemove: () => { setQueryNeededFilter(""); setPage(1); } },
+              qualitySeverity && { label: `품질 ${qualitySeverity === "CRITICAL" ? "치명" : "일반"}`, color: "bg-rose-50 text-rose-600 border border-rose-100", onRemove: () => { setQualitySeverity(""); setPage(1); } },
+              qualityIssueCode && { label: qualityIssueCode, color: "bg-violet-50 text-violet-600 border border-violet-100 font-mono", onRemove: () => { setQualityIssueCode(""); setPage(1); } },
+              reanalyzeFilter && { label: `${{ FAILED: "실패", RUNNING: "진행중", PENDING: "대기", COMPLETED: "완료", CACHE_HIT: "캐시", NONE: "없음" }[reanalyzeFilter] || reanalyzeFilter}`, color: "bg-indigo-50 text-indigo-600 border border-indigo-100", onRemove: () => { setReanalyzeFilter(""); setPage(1); } },
+              keyword && { label: `"${keyword}"`, color: "bg-gray-50 text-gray-600 border border-gray-200", onRemove: () => { if (keywordTimerRef.current) clearTimeout(keywordTimerRef.current); setKeyword(""); setSearchInput(""); setPage(1); } },
+              failedReqFilter && { label: `실패 항목만 (${failedReqFilter.size})`, color: "bg-rose-50 text-rose-600 border border-rose-100", onRemove: () => setFailedReqFilter(null) },
+            ].filter(Boolean) as { label: string; color: string; onRemove: () => void }[]}
+            onResetAll={resetFilters}
+          />
 
-      {/* ── 통합 필터 칩 + 재분석 툴바 ─────────────────────────────── */}
-      {/* ── 프리셋 바 ───────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 mb-1.5 flex-wrap text-[11px]">
-        <span className="text-gray-400 mr-0.5">프리셋:</span>
-        {presets.map(p => (
-          <span key={p.name} className="inline-flex items-center gap-0.5">
-            <button onClick={() => applyFilterSnapshot(p.filters)}
-              className="px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors">
-              {p.name}
-            </button>
-            {!DEFAULT_PRESETS.some(d => d.name === p.name) && (
-              <button onClick={() => deletePreset(p.name)}
-                className="text-gray-300 hover:text-red-500 text-[9px]">&times;</button>
-            )}
-          </span>
-        ))}
-        {hasActive && !showPresetSave && (
-          <button onClick={() => setShowPresetSave(true)}
-            className="px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-            + 현재 필터 저장
-          </button>
-        )}
-        {showPresetSave && (
-          <span className="inline-flex items-center gap-1">
-            <input value={presetNameInput} onChange={e => setPresetNameInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && savePreset()}
-              placeholder="프리셋 이름"
-              className="border rounded px-1.5 py-0.5 text-[11px] w-28" autoFocus />
-            <button onClick={savePreset}
-              className="px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-[11px]">저장</button>
-            <button onClick={() => { setShowPresetSave(false); setPresetNameInput(""); }}
-              className="text-gray-400 hover:text-gray-600">&times;</button>
-          </span>
-        )}
-      </div>
-
-      <ActiveFilterChips
-        filters={[
-          reviewFilter && { label: `검토: ${REVIEW_FILTERS.find(f => f.value === reviewFilter)?.label || reviewFilter}`, color: "bg-blue-100 text-blue-700", onRemove: () => { setReviewFilter(""); setPage(1); } },
-          categoryFilter && { label: `카테고리: ${CATEGORY_LABELS[categoryFilter] || categoryFilter}`, color: "bg-gray-100 text-gray-700", onRemove: () => { setCategoryFilter(""); setPage(1); } },
-          factLevelFilter && { label: `근거: ${factLevelFilter === "FACT" ? "확정" : factLevelFilter === "INFERENCE" ? "추론" : "검토필요"}`, color: "bg-yellow-100 text-yellow-700", onRemove: () => { setFactLevelFilter(""); setPage(1); } },
-          mandatoryFilter && { label: mandatoryFilter === "true" ? "필수" : "선택", color: "bg-rose-100 text-rose-700", onRemove: () => { setMandatoryFilter(""); setPage(1); } },
-          queryNeededFilter && { label: queryNeededFilter === "true" ? "질의필요" : "질의불필요", color: "bg-orange-100 text-orange-700", onRemove: () => { setQueryNeededFilter(""); setPage(1); } },
-          qualitySeverity && { label: `품질: ${qualitySeverity === "CRITICAL" ? "치명" : "일반"}`, color: qualitySeverity === "CRITICAL" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", onRemove: () => { setQualitySeverity(""); setPage(1); } },
-          qualityIssueCode && { label: qualityIssueCode, color: "bg-purple-100 text-purple-700 font-mono", onRemove: () => { setQualityIssueCode(""); setPage(1); } },
-          reanalyzeFilter && { label: `재분석: ${{ FAILED: "실패", RUNNING: "진행중", PENDING: "대기", COMPLETED: "완료", CACHE_HIT: "캐시", NONE: "없음" }[reanalyzeFilter] || reanalyzeFilter}`, color: reanalyzeFilter === "FAILED" ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700", onRemove: () => { setReanalyzeFilter(""); setPage(1); } },
-          reanalyzeSort && { label: "실패 우선 정렬", color: "bg-indigo-100 text-indigo-700", onRemove: () => setReanalyzeSort("") },
-          keyword && { label: `"${keyword}"`, color: "bg-gray-100 text-gray-700", onRemove: () => { if (keywordTimerRef.current) clearTimeout(keywordTimerRef.current); setKeyword(""); setSearchInput(""); setPage(1); } },
-          failedReqFilter && { label: `실패 항목만 (${failedReqFilter.size}건)`, color: "bg-red-100 text-red-700", onRemove: () => setFailedReqFilter(null) },
-        ].filter(Boolean) as { label: string; color: string; onRemove: () => void }[]}
-        onResetAll={resetFilters}
-      />
-
-      {/* 재분석 상태 바 */}
-      <div className="flex items-center gap-1.5 mb-2 flex-wrap text-[11px]">
-        <span className="text-gray-400 mr-0.5">재분석:</span>
-        {[
-          { value: "", label: "전체" },
-          { value: "FAILED", label: "실패", c: "bg-red-100 text-red-700" },
-          { value: "RUNNING", label: "진행중", c: "bg-blue-100 text-blue-700" },
-          { value: "PENDING", label: "대기", c: "bg-blue-50 text-blue-600" },
-          { value: "COMPLETED", label: "완료", c: "bg-green-100 text-green-700" },
-          { value: "CACHE_HIT", label: "캐시", c: "bg-gray-100 text-gray-600" },
-          { value: "NONE", label: "없음", c: "bg-gray-50 text-gray-400" },
-        ].map(o => (
-          <button key={o.value} onClick={() => { setReanalyzeFilter(o.value); setPage(1); }}
-            className={`px-1.5 py-0.5 rounded transition-colors ${
-              reanalyzeFilter === o.value ? "ring-1 ring-indigo-400 font-bold " + (o.c || "bg-gray-200 text-gray-700") : (o.c || "bg-gray-100 text-gray-500") + " hover:opacity-80"
-            }`}>{o.label}</button>
-        ))}
-        <span className="text-gray-200 mx-0.5">|</span>
-        <button onClick={() => setReanalyzeSort(reanalyzeSort ? "" : "failed_first")}
-          className={`px-1.5 py-0.5 rounded transition-colors ${reanalyzeSort ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300 font-bold" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}>
-          {reanalyzeSort ? "실패우선 ON" : "실패우선"}
-        </button>
-      </div>
-
-      {/* 실패 항목 재재분석 액션 */}
-      {failedReqFilter && failedReqFilter.size > 0 && (
-        <div className="flex items-center gap-2 mb-2 text-xs">
-          <button onClick={() => setSelectedIds(new Set(failedReqFilter))}
-            className="px-2 py-0.5 rounded bg-red-100 text-red-700 font-medium hover:bg-red-200">
-            실패 항목 전체 선택
-          </button>
-          {selectedIds.size > 0 && [...selectedIds].every(sid => failedReqFilter.has(sid)) && (
-            <button onClick={async () => {
-              setBatchState("requesting"); setBatchResult(null);
-              try {
-                const result = await requirementApi.batchReanalyze(id, Array.from(selectedIds));
-                setBatchResult(result); setBatchState("done"); setSelectedIds(new Set()); setFailedReqFilter(null);
-                if (result.created_job_ids?.length > 0) setBatchJobIds(result.created_job_ids);
-              } catch (err: any) { setBatchResult({ error: err.message || "재재분석 실패" }); setBatchState("done"); }
-            }} disabled={batchState === "requesting"}
-              className={`px-2 py-0.5 rounded font-medium transition-colors ${batchState === "requesting" ? "bg-gray-200 text-gray-500 cursor-wait" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
-              {batchState === "requesting" ? "요청 중..." : `선택 실패 항목 재분석 (${selectedIds.size}건)`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* 일괄 재분석 진행 배너 */}
-      {batchStatus && batchJobIds.length > 0 && (
-        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-[11px] ${
-          batchStatus.done
-            ? batchStatus.failed_count > 0
-              ? "bg-amber-50/60 border-amber-100"
-              : "bg-emerald-50/60 border-emerald-100"
-            : "bg-blue-50/60 border-blue-100"
-        }`}>
-          <span className="font-medium text-gray-700">
-            {batchStatus.done ? "일괄 재분석 완료" : "일괄 재분석 진행 중"}
-          </span>
-          <span className="text-gray-500">총 {batchStatus.total_jobs}건</span>
-          {!batchStatus.done && (
-            <>
-              {batchStatus.running_count > 0 && <span className="text-blue-600 font-bold">진행 {batchStatus.running_count}</span>}
-              {batchStatus.pending_count > 0 && <span className="text-gray-500">대기 {batchStatus.pending_count}</span>}
-              <span className="animate-pulse text-blue-400">...</span>
-            </>
-          )}
-          {batchStatus.completed_count > 0 && (
-            <span className="text-green-600 font-bold">완료 {batchStatus.completed_count}</span>
-          )}
-          {batchStatus.cache_hit_count > 0 && (
-            <span className="text-gray-500">캐시 {batchStatus.cache_hit_count}</span>
-          )}
-          {batchStatus.failed_count > 0 && (
-            <button onClick={() => {
-              const ids = new Set<string>((batchStatus.failed_jobs || []).map((f: any) => f.requirement_id as string));
-              setFailedReqFilter(failedReqFilter ? null : ids);
-            }}
-              className={`font-bold px-1.5 py-0.5 rounded transition-colors ${
-                failedReqFilter ? "bg-red-200 text-red-800 ring-1 ring-red-400" : "text-red-600 hover:bg-red-100"
-              }`}>
-              실패 {batchStatus.failed_count}
-            </button>
-          )}
-          {/* 진행률 바 */}
-          {!batchStatus.done && batchStatus.total_jobs > 0 && (
-            <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[60px]">
-              <div className="bg-blue-500 h-1.5 rounded-full transition-all"
-                style={{ width: `${Math.round(((batchStatus.completed_count + batchStatus.failed_count) / batchStatus.total_jobs) * 100)}%` }} />
-            </div>
-          )}
-          {batchStatus.done && (
-            <button onClick={() => { setBatchJobIds([]); setBatchStatus(null); setFailedReqFilter(null); }}
-              className="text-gray-400 hover:text-gray-600 ml-auto">&times;</button>
-          )}
-        </div>
-      )}
-
-      {/* 일괄 재분석 액션 바 */}
-      {items.length > 0 && (
-        <div className="flex items-center gap-2 mb-2 text-xs">
-          <label className="flex items-center gap-1 cursor-pointer text-gray-500">
-            <input type="checkbox"
-              checked={items.length > 0 && selectedIds.size === items.length}
-              onChange={(e) => {
-                if (e.target.checked) setSelectedIds(new Set(items.map((r: any) => r.id)));
-                else setSelectedIds(new Set());
-              }}
-              className="w-3.5 h-3.5" />
-            전체 선택 ({selectedIds.size}/{items.length})
-          </label>
-          {selectedIds.size > 0 && (
-            <button onClick={async () => {
-              setBatchState("requesting");
-              setBatchResult(null);
-              try {
-                const result = await requirementApi.batchReanalyze(id, Array.from(selectedIds));
-                setBatchResult(result);
-                setBatchState("done");
-                setSelectedIds(new Set());
-                // 생성된 job이 있으면 polling 시작
-                if (result.created_job_ids?.length > 0) {
-                  setBatchJobIds(result.created_job_ids);
-                }
-              } catch (err: any) {
-                setBatchResult({ error: err.message || "일괄 재분석 실패" });
-                setBatchState("done");
-              }
-            }}
-              disabled={batchState === "requesting"}
-              className={`px-3 py-1 rounded font-medium transition-colors ${
-                batchState === "requesting"
-                  ? "bg-gray-200 text-gray-500 cursor-wait"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700"
-              }`}>
-              {batchState === "requesting" ? "재분석 요청 중..." : `선택 항목 재분석 (${selectedIds.size}건)`}
-            </button>
-          )}
-          {batchResult && batchState === "done" && (
-            <div className={`flex items-center gap-2 px-2.5 py-1 rounded border text-[11px] ${
-              batchResult.error ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"
-            }`}>
-              {batchResult.error ? (
-                <span>{batchResult.error}</span>
-              ) : (
-                <>
-                  <span>생성 {batchResult.created_job_count}건</span>
-                  {batchResult.skipped_count > 0 && <span className="text-amber-600">제외 {batchResult.skipped_count}건</span>}
-                </>
+          {/* Batch 진행 배너 */}
+          {batchStatus && batchJobIds.length > 0 && (
+            <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-[11px] ${batchStatus.done ? batchStatus.failed_count > 0 ? "bg-amber-50/60 border-amber-100" : "bg-emerald-50/60 border-emerald-100" : "bg-indigo-50/60 border-indigo-100"}`}>
+              <span className="font-medium text-gray-700">{batchStatus.done ? "완료" : "진행 중"}</span>
+              <span className="text-gray-400 tabular-nums">{batchStatus.total_jobs}건</span>
+              {!batchStatus.done && batchStatus.running_count > 0 && <span className="text-indigo-600 font-bold tabular-nums">진행 {batchStatus.running_count}</span>}
+              {batchStatus.completed_count > 0 && <span className="text-emerald-600 font-bold tabular-nums">완료 {batchStatus.completed_count}</span>}
+              {batchStatus.failed_count > 0 && (
+                <button onClick={() => { const ids = new Set<string>((batchStatus.failed_jobs || []).map((f: any) => f.requirement_id as string)); setFailedReqFilter(failedReqFilter ? null : ids); }}
+                  className={`font-bold px-1.5 py-0.5 rounded-md ${failedReqFilter ? "bg-rose-200 text-rose-800" : "text-rose-600 hover:bg-rose-100"}`}>실패 {batchStatus.failed_count}</button>
               )}
-              <button onClick={() => { setBatchResult(null); setBatchState("idle"); }}
-                className="text-gray-400 hover:text-gray-600">&times;</button>
+              {!batchStatus.done && batchStatus.total_jobs > 0 && (
+                <div className="flex-1 bg-gray-100 rounded-full h-1 min-w-[40px]">
+                  <div className="bg-indigo-400 h-1 rounded-full transition-all" style={{ width: `${Math.round(((batchStatus.completed_count + batchStatus.failed_count) / batchStatus.total_jobs) * 100)}%` }} />
+                </div>
+              )}
+              {batchStatus.done && <button onClick={() => { setBatchJobIds([]); setBatchStatus(null); setFailedReqFilter(null); }} className="text-gray-400 hover:text-gray-600 ml-auto">&times;</button>}
+            </div>
+          )}
+
+          {/* 목록 */}
+          <GroupedRequirementList items={displayItems} loading={loading}
+            failedReasonMap={failedReasonMap} reanalyzeMap={reanalyzeMap}
+            selectedIds={selectedIds}
+            onToggleSelect={(reqId: string) => { setSelectedIds(prev => { const next = new Set(prev); if (next.has(reqId)) next.delete(reqId); else next.add(reqId); return next; }); }}
+            onRowClick={(r: any) => router.push(`/projects/${id}/requirements/${r.id}`)} />
+
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-1 mt-3" role="navigation">
+              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}
+                className="px-3 py-1 text-[11px] border border-gray-200 rounded-lg disabled:opacity-20 hover:bg-gray-50 transition-colors">이전</button>
+              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 4, totalPages - 9));
+                const p = start + i;
+                if (p > totalPages) return null;
+                return (
+                  <button key={p} onClick={() => setPage(p)} aria-current={page === p ? "page" : undefined}
+                    className={`px-3 py-1 text-[11px] rounded-lg tabular-nums transition-colors ${page === p ? "bg-indigo-600 text-white" : "border border-gray-200 hover:bg-gray-50"}`}>{p}</button>
+                );
+              })}
+              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
+                className="px-3 py-1 text-[11px] border border-gray-200 rounded-lg disabled:opacity-20 hover:bg-gray-50 transition-colors">다음</button>
             </div>
           )}
         </div>
-      )}
-
-      <GroupedRequirementList items={applyReanalyzeFilterSort(failedReqFilter ? items.filter((r: any) => failedReqFilter.has(r.id)) : items)} loading={loading}
-        failedReasonMap={failedReasonMap}
-        reanalyzeMap={reanalyzeMap}
-        selectedIds={selectedIds}
-        onToggleSelect={(reqId: string) => {
-          setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(reqId)) next.delete(reqId); else next.add(reqId);
-            return next;
-          });
-        }}
-        onRowClick={(r: any) => router.push(`/projects/${id}/requirements/${r.id}`)} />
-
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-1 mt-4" role="navigation" aria-label="페이지네이션">
-          <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}
-            className="px-3 py-1 text-xs border rounded disabled:opacity-30" aria-label="이전 페이지">이전</button>
-          {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-            const start = Math.max(1, Math.min(page - 4, totalPages - 9));
-            const p = start + i;
-            if (p > totalPages) return null;
-            return (
-              <button key={p} onClick={() => setPage(p)} aria-current={page === p ? "page" : undefined}
-                className={`px-3 py-1 text-xs border rounded ${page === p ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"}`}>
-                {p}
-              </button>
-            );
-          })}
-          <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
-            className="px-3 py-1 text-xs border rounded disabled:opacity-30" aria-label="다음 페이지">다음</button>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -995,6 +809,60 @@ function StatCard({ label, count, color, active, onClick }: {
       }`}>
       <div className="text-base font-bold tabular-nums">{count}</div>
       <div className="text-[10px] text-gray-400">{label}</div>
+    </button>
+  );
+}
+
+function KpiCard({ label, value, sub, accent, active, onClick }: {
+  label: string; value: number; sub?: string; accent?: string; active?: boolean; onClick?: () => void;
+}) {
+  const colors: Record<string, string> = {
+    amber: "text-amber-600", rose: "text-rose-600", indigo: "text-indigo-600", emerald: "text-emerald-600",
+  };
+  return (
+    <button onClick={onClick}
+      className={`bg-white rounded-xl border shadow-sm px-4 py-3 text-left transition-all ${
+        active ? "border-indigo-200 ring-2 ring-indigo-100" : "border-gray-100 hover:border-gray-200"
+      }`}>
+      <div className={`text-2xl font-bold tabular-nums ${accent ? colors[accent] || "text-gray-700" : "text-gray-700"}`}>{value}</div>
+      <div className="text-[11px] text-gray-500 font-medium mt-0.5">{label}</div>
+      {sub && <div className="text-[10px] text-gray-300 mt-0.5">{sub}</div>}
+    </button>
+  );
+}
+
+function FilterSection({ title, options, value, onChange }: {
+  title: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{title}</div>
+      <div className="flex flex-wrap gap-1">
+        {options.map(o => (
+          <button key={o.value} onClick={() => onChange(value === o.value ? "" : o.value)}
+            className={`px-2 py-0.5 rounded-md text-[11px] transition-colors ${
+              value === o.value
+                ? "bg-indigo-600 text-white font-medium"
+                : "bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600"
+            }`}>{o.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ToggleFilter({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] transition-colors ${
+        active ? "bg-indigo-50 text-indigo-700 font-medium" : "text-gray-500 hover:bg-gray-50"
+      }`}>
+      <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+        active ? "bg-indigo-600 border-indigo-600" : "border-gray-300"
+      }`}>
+        {active && <span className="text-white text-[8px]">&#10003;</span>}
+      </span>
+      {label}
     </button>
   );
 }
