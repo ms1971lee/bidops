@@ -57,10 +57,10 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left - branding panel */}
-      <div className="hidden lg:flex lg:w-[480px] xl:w-[560px] bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-[480px] xl:w-[560px] bg-gradient-to-br from-gray-950 via-indigo-950 to-gray-950 text-white flex-col justify-between p-12">
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
               <span className="font-bold text-lg">B</span>
             </div>
             <span className="text-xl font-bold tracking-tight">BidOps</span>
@@ -69,7 +69,7 @@ export default function LoginPage() {
           <h2 className="text-3xl font-bold leading-snug mb-4">
             근거 기반으로<br />입찰을 분석합니다
           </h2>
-          <p className="text-blue-200/80 leading-relaxed">
+          <p className="text-indigo-200/70 leading-relaxed">
             RFP 요구사항을 구조적으로 분석하고,<br />
             누락을 방지하며, 수주 운영을 지원합니다.
           </p>
@@ -81,7 +81,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-xs text-blue-300/50">
+        <p className="text-xs text-indigo-300/40">
           &copy; 2026 BidOps. All rights reserved.
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function LoginPage() {
         <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold">B</span>
             </div>
             <span className="text-lg font-bold">BidOps</span>
@@ -129,7 +129,7 @@ export default function LoginPage() {
             <div>
               <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1.5">이메일</label>
               <input id="login-email" ref={emailRef} type="email" autoComplete="email"
-                className="w-full h-11 border border-gray-200 px-4 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full h-11 border border-gray-200 px-4 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow"
                 value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com" />
             </div>
@@ -137,7 +137,7 @@ export default function LoginPage() {
               <label htmlFor="login-pw" className="block text-sm font-medium text-gray-700 mb-1.5">비밀번호</label>
               <div className="relative">
                 <input id="login-pw" type={showPw ? "text" : "password"} autoComplete="current-password"
-                  className="w-full h-11 border border-gray-200 px-4 pr-16 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  className="w-full h-11 border border-gray-200 px-4 pr-16 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow"
                   value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="8자 이상" />
                 <button type="button" onClick={() => setShowPw(!showPw)}
@@ -156,22 +156,22 @@ export default function LoginPage() {
                     try { localStorage.removeItem("bidops_remember"); } catch {}
                   }
                 }}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
               <span className="text-sm text-gray-600">로그인 정보 기억하기</span>
             </label>
 
             {error && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-lg" role="alert">{error}</div>
+              <div className="text-sm text-rose-600 bg-rose-50/50 border border-rose-100 px-4 py-2.5 rounded-xl" role="alert">{error}</div>
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full h-11 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm hover:shadow-md">
+              className="w-full h-11 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm hover:shadow-md">
               {loading ? "로그인 중..." : "로그인"}
             </button>
           </form>
 
           <div className="flex items-center justify-center gap-3 mt-6 text-sm">
-            <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-semibold">회원가입</Link>
+            <Link href="/signup" className="text-indigo-600 hover:text-indigo-700 font-semibold">회원가입</Link>
             <span className="text-gray-300">|</span>
             <Link href="/forgot-password" className="text-gray-500 hover:text-gray-700">비밀번호 찾기</Link>
           </div>
@@ -184,8 +184,8 @@ export default function LoginPage() {
 function Feature({ icon, text }: { icon: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center text-xs font-bold text-blue-300 shrink-0">{icon}</span>
-      <span className="text-sm text-blue-100/90 mt-1">{text}</span>
+      <span className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">{icon}</span>
+      <span className="text-sm text-indigo-100/80 mt-1">{text}</span>
     </div>
   );
 }

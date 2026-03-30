@@ -4,6 +4,11 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { projectApi } from "@/lib/api";
 import StatusBadge from "@/components/common/StatusBadge";
+import EmptyState from "@/components/common/EmptyState";
+import LoadingState from "@/components/common/LoadingState";
+import ErrorState from "@/components/common/ErrorState";
+import AppCard from "@/components/common/AppCard";
+import AppButton from "@/components/common/AppButton";
 
 const STATUS_OPTIONS = [
   { value: "", label: "전체 상태" },
@@ -77,123 +82,105 @@ export default function ProjectsPage() {
   const hasFilter = !!(keyword || statusFilter);
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">프로젝트</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{projects.length}개 프로젝트</p>
+          <h1 className="text-lg font-bold text-gray-800">프로젝트</h1>
+          <p className="text-[11px] text-gray-400 mt-0.5">{projects.length}개 프로젝트</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+        <AppButton onClick={() => setShowForm(!showForm)}>
           {showForm ? "취소" : "+ 새 프로젝트"}
-        </button>
+        </AppButton>
       </div>
 
       {/* Create form */}
       {showForm && (
-        <div className="bg-white rounded-lg border p-4 mb-4">
-          <h3 className="text-sm font-medium mb-3">새 프로젝트 생성</h3>
+        <AppCard padding="lg">
+          <h3 className="text-xs font-semibold text-gray-600 mb-3">새 프로젝트 생성</h3>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">프로젝트명 *</label>
-              <input className="w-full border px-3 py-1.5 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              <label className="block text-[11px] text-gray-400 mb-1">프로젝트명 *</label>
+              <input className="w-full border border-gray-200 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 focus:outline-none transition-colors"
                 value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="2026 XX시스템 구축" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">발주처</label>
-              <input className="w-full border px-3 py-1.5 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              <label className="block text-[11px] text-gray-400 mb-1">발주처</label>
+              <input className="w-full border border-gray-200 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 focus:outline-none transition-colors"
                 value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })}
                 placeholder="XX공사" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">사업명</label>
-              <input className="w-full border px-3 py-1.5 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              <label className="block text-[11px] text-gray-400 mb-1">사업명</label>
+              <input className="w-full border border-gray-200 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 focus:outline-none transition-colors"
                 value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })}
                 placeholder="통합정보시스템 구축 사업" />
             </div>
           </div>
-          <div className="flex justify-end mt-3">
-            <button onClick={handleCreate} disabled={creating || !form.name.trim()}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm disabled:opacity-50 hover:bg-blue-700 transition-colors">
+          <div className="flex justify-end mt-4">
+            <AppButton onClick={handleCreate} disabled={creating || !form.name.trim()}>
               {creating ? "생성 중..." : "생성"}
-            </button>
+            </AppButton>
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded mb-4 flex items-center justify-between" role="alert">
-          <span>{error}</span>
-          <button onClick={load} className="text-xs text-red-600 hover:underline font-medium ml-3">다시 시도</button>
-        </div>
-      )}
+      {error && <ErrorState title={error} compact onRetry={load} />}
 
       {/* Filters */}
       {!loading && projects.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2">
           <input value={keyword} onChange={(e) => setKeyword(e.target.value)}
             placeholder="프로젝트 검색..."
-            className="border rounded px-3 py-1.5 text-sm w-56 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-56 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 focus:outline-none transition-colors" />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="border rounded px-2 py-1.5 text-sm" aria-label="상태 필터">
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm" aria-label="상태 필터">
             {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {hasFilter && (
             <button onClick={() => { setKeyword(""); setStatusFilter(""); }}
-              className="text-xs text-gray-400 hover:text-red-500">초기화</button>
+              className="text-[11px] text-gray-400 hover:text-indigo-600 transition-colors">초기화</button>
           )}
-          <span className="text-xs text-gray-400 ml-auto">{filtered.length}건</span>
+          <span className="text-[11px] text-gray-300 ml-auto tabular-nums">{filtered.length}건</span>
         </div>
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="text-center text-gray-400 py-16 text-sm">프로젝트 목록을 불러오는 중...</div>
-      )}
+      {loading && <LoadingState variant="list" rows={3} />}
 
-      {/* Empty */}
       {!loading && !error && projects.length === 0 && (
-        <div className="bg-white rounded-lg border text-center py-16">
-          <div className="text-gray-400 text-sm mb-3">프로젝트가 없습니다</div>
-          <button onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-            첫 프로젝트 만들기
-          </button>
-        </div>
+        <EmptyState title="프로젝트가 없습니다" description="새 프로젝트를 만들어 RFP 분석을 시작하세요."
+          primaryAction={{ label: "첫 프로젝트 만들기", onClick: () => setShowForm(true) }} />
       )}
 
-      {/* Filter empty */}
       {!loading && projects.length > 0 && filtered.length === 0 && hasFilter && (
-        <div className="bg-white rounded-lg border text-center py-12 text-sm text-gray-400">
-          검색 조건에 맞는 프로젝트가 없습니다
-        </div>
+        <EmptyState title="조건에 맞는 결과가 없습니다" description="필터를 조정하거나 검색어를 변경해보세요." compact
+          secondaryAction={{ label: "초기화", onClick: () => { setKeyword(""); setStatusFilter(""); } }} />
       )}
 
       {/* Project cards */}
       {!loading && filtered.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((p) => (
             <Link key={p.id} href={`/projects/${p.id}`}
-              className="bg-white rounded-lg border p-4 hover:shadow-md hover:border-blue-300 transition-all group">
+              className="block bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md hover:border-indigo-200 transition-all group">
               <div className="flex items-start justify-between mb-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-medium text-sm group-hover:text-blue-600 truncate">{p.name}</h3>
-                  <div className="text-xs text-gray-500 mt-0.5 truncate">
-                    {p.client_name}{p.business_name ? ` - ${p.business_name}` : ""}
+                  <h3 className="font-medium text-sm text-gray-800 group-hover:text-indigo-600 truncate transition-colors">{p.name}</h3>
+                  <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                    {p.client_name}{p.business_name ? ` · ${p.business_name}` : ""}
                   </div>
                 </div>
                 <StatusBadge value={p.status || "DRAFT"} />
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-gray-400 mt-3 pt-3 border-t">
+              <div className="flex items-center gap-3 text-[11px] text-gray-300 mt-3 pt-3 border-t border-gray-50">
                 <span>{formatDate(p.created_at)}</span>
-                {p.bid_type && <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{p.bid_type}</span>}
+                {p.bid_type && <span className="bg-gray-50 px-1.5 py-0.5 rounded-md text-gray-500 border border-gray-100">{p.bid_type}</span>}
                 {p.due_date && (
-                  <span className="ml-auto text-orange-500">
-                    마감: {typeof p.due_date === "string" ? p.due_date : formatDate(p.due_date)}
+                  <span className="ml-auto text-amber-500">
+                    마감 {typeof p.due_date === "string" ? p.due_date : formatDate(p.due_date)}
                   </span>
                 )}
               </div>

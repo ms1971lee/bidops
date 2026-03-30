@@ -7,6 +7,8 @@ import { documentApi, analysisJobApi } from "@/lib/api";
 import { useProjectRole } from "@/lib/useProjectRole";
 import StatusBadge from "@/components/common/StatusBadge";
 import DetailPanel, { PanelField } from "@/components/common/DetailPanel";
+import ErrorState from "@/components/common/ErrorState";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function DocumentsPage() {
   const { id } = useParams() as { id: string };
@@ -122,18 +124,18 @@ export default function DocumentsPage() {
   const selectedJob = selected ? latestJobByDoc(selected.id) : null;
 
   return (
-    <div className="flex flex-col gap-4"
+    <div className="flex flex-col gap-3"
       onDragEnter={handleDragEnter} onDragLeave={handleDragLeave}
       onDragOver={handleDragOver} onDrop={handleDrop}>
 
       {/* 상단 요약 배지 */}
       {docs.length > 0 && (
-        <div className="flex gap-3">
-          <SummaryBadge label="전체" count={docs.length} color="bg-gray-100 text-gray-700" />
-          {uploadedCount > 0 && <SummaryBadge label="업로드됨" count={uploadedCount} color="bg-blue-50 text-blue-700" />}
-          {parsingCount > 0 && <SummaryBadge label="분석중" count={parsingCount} color="bg-yellow-50 text-yellow-700" pulse />}
-          {parsedCount > 0 && <SummaryBadge label="분석완료" count={parsedCount} color="bg-green-50 text-green-700" />}
-          {failedCount > 0 && <SummaryBadge label="실패" count={failedCount} color="bg-red-50 text-red-700" />}
+        <div className="flex gap-2">
+          <SummaryBadge label="전체" count={docs.length} color="bg-gray-50 text-gray-600" />
+          {uploadedCount > 0 && <SummaryBadge label="업로드" count={uploadedCount} color="bg-indigo-50/60 text-indigo-600" />}
+          {parsingCount > 0 && <SummaryBadge label="분석중" count={parsingCount} color="bg-amber-50/60 text-amber-600" pulse />}
+          {parsedCount > 0 && <SummaryBadge label="완료" count={parsedCount} color="bg-emerald-50/60 text-emerald-600" />}
+          {failedCount > 0 && <SummaryBadge label="실패" count={failedCount} color="bg-rose-50/60 text-rose-600" />}
         </div>
       )}
 
@@ -142,14 +144,14 @@ export default function DocumentsPage() {
         const activeJob = jobs.find((j: any) => j.status === "PENDING" || j.status === "RUNNING");
         const pct = activeJob?.progress || 0;
         return (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-2">
+          <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
-              <span className="text-sm text-blue-800 font-medium">분석이 진행 중입니다</span>
-              <span className="text-xs text-blue-600">{pct > 0 ? `${pct}%` : "준비 중..."}</span>
+              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+              <span className="text-[11px] text-indigo-700 font-medium">분석이 진행 중입니다</span>
+              <span className="text-[11px] text-indigo-500 tabular-nums">{pct > 0 ? `${pct}%` : "준비 중..."}</span>
             </div>
-            <div className="w-full bg-blue-200 rounded-full h-1.5">
-              <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, 1)}%` }} />
+            <div className="w-full bg-indigo-100 rounded-full h-1">
+              <div className="bg-indigo-500 h-1 rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, 1)}%` }} />
             </div>
           </div>
         );
@@ -158,13 +160,13 @@ export default function DocumentsPage() {
       {/* 헤더 */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold">문서 목록</h2>
-          <span className="text-xs text-gray-400">{docs.length}건</span>
+          <h2 className="text-sm font-semibold text-gray-700">문서 목록</h2>
+          <span className="text-[11px] text-gray-300 tabular-nums">{docs.length}건</span>
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
             <select value={uploadType} onChange={(e) => setUploadType(e.target.value)}
-              className="border rounded px-2 py-1 text-xs" aria-label="문서 유형">
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" aria-label="문서 유형">
               <option value="RFP">RFP</option>
               <option value="ANNEX">별첨</option>
               <option value="FORM">양식</option>
@@ -173,28 +175,23 @@ export default function DocumentsPage() {
             </select>
             <input type="file" ref={fileRef} accept=".pdf" onChange={handleUpload} className="hidden" aria-label="PDF 파일 선택" />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm disabled:opacity-50 hover:bg-blue-700 transition-colors">
+              className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[11px] font-medium disabled:opacity-50 hover:bg-indigo-700 transition-colors shadow-sm">
               {uploading ? "업로드 중..." : "PDF 업로드"}
             </button>
           </div>
         )}
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded px-4 py-2 text-sm text-red-700 flex items-center justify-between" role="alert">
-          <span>{error}</span>
-          <button onClick={load} className="text-xs text-red-600 hover:underline font-medium ml-3">다시 시도</button>
-        </div>
-      )}
+      {error && <ErrorState title={error} compact onRetry={load} />}
 
       <div className="flex gap-4 relative">
         {/* 드래그 오버레이 */}
         {dragging && (
-          <div className="absolute inset-0 z-50 bg-blue-50/80 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 z-50 bg-indigo-50/80 border-2 border-dashed border-indigo-300 rounded-xl flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <div className="text-4xl mb-2">📄</div>
-              <div className="text-blue-700 font-semibold">PDF 파일을 여기에 놓으세요</div>
-              <div className="text-sm text-blue-500 mt-1">여러 파일을 한 번에 업로드할 수 있습니다</div>
+              <div className="text-3xl mb-2 opacity-60">PDF</div>
+              <div className="text-indigo-700 font-semibold text-sm">파일을 여기에 놓으세요</div>
+              <div className="text-[11px] text-indigo-400 mt-1">여러 파일을 한 번에 업로드할 수 있습니다</div>
             </div>
           </div>
         )}
@@ -202,9 +199,10 @@ export default function DocumentsPage() {
         {/* 문서 리스트 */}
         <div className={`${selected ? "w-1/2 xl:w-3/5" : "flex-1"} transition-all`}>
           {docs.length === 0 ? (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center text-gray-400 text-sm">
-              {canEdit ? "PDF 파일을 드래그하거나 업로드 버튼을 클릭하세요" : "업로드된 문서가 없습니다"}
-            </div>
+            <EmptyState
+              title={canEdit ? "아직 업로드된 문서가 없습니다" : "업로드된 문서가 없습니다"}
+              description={canEdit ? "RFP PDF를 드래그하거나 업로드 버튼을 클릭하세요." : undefined}
+              primaryAction={canEdit ? { label: "PDF 업로드", onClick: () => fileRef.current?.click() } : undefined} />
           ) : (
             <div className="space-y-2">
               {docs.map((d) => {
@@ -213,9 +211,9 @@ export default function DocumentsPage() {
                 const isSelected = selected?.id === d.id;
                 return (
                   <div key={d.id} onClick={() => selectDoc(d.id)}
-                    className={`bg-white rounded-lg border cursor-pointer transition-all hover:shadow-sm ${
-                      isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200 hover:border-gray-300"
-                    } ${d.parse_status === "FAILED" ? "border-l-4 border-l-red-400" : ""}`}>
+                    className={`bg-white rounded-xl border cursor-pointer transition-all hover:shadow-sm ${
+                      isSelected ? "border-indigo-300 ring-2 ring-indigo-100 shadow-sm" : "border-gray-100 hover:border-gray-200"
+                    } ${d.parse_status === "FAILED" ? "border-l-4 border-l-rose-300" : ""}`}>
 
                     <div className="px-4 py-3 space-y-1.5">
                       {/* 1줄: 파일명 */}
@@ -271,11 +269,11 @@ export default function DocumentsPage() {
 
                     {/* Progress bar (분석 중일 때만) */}
                     {busy && (
-                      <div className="px-4 pb-2">
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.max(job?.progress || 0, 1)}%` }} />
+                      <div className="px-4 pb-2.5">
+                        <div className="w-full bg-gray-100 rounded-full h-1">
+                          <div className="bg-indigo-400 h-1 rounded-full transition-all duration-500" style={{ width: `${Math.max(job?.progress || 0, 1)}%` }} />
                         </div>
-                        <div className="text-[10px] text-blue-500 mt-0.5 text-right">
+                        <div className="text-[10px] text-indigo-400 mt-0.5 text-right tabular-nums">
                           {job?.progress ? `${job.progress}%` : "준비 중..."}
                         </div>
                       </div>
@@ -410,9 +408,9 @@ export default function DocumentsPage() {
 /* ── Summary badge ───────────────────────────────────────────────── */
 function SummaryBadge({ label, count, color, pulse }: { label: string; count: number; color: string; pulse?: boolean }) {
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-gray-100 ${color}`}>
       {pulse && <span className="w-1.5 h-1.5 bg-current rounded-full animate-pulse" />}
-      {label} <span className="font-bold">{count}</span>
+      {label} <span className="font-bold tabular-nums">{count}</span>
     </div>
   );
 }

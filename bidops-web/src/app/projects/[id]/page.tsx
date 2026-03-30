@@ -4,6 +4,12 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { documentApi, analysisJobApi, requirementApi, checklistApi, inquiryApi } from "@/lib/api";
+import LoadingState from "@/components/common/LoadingState";
+import ErrorState from "@/components/common/ErrorState";
+import EmptyState from "@/components/common/EmptyState";
+import AppCard from "@/components/common/AppCard";
+import SectionHeader from "@/components/common/SectionHeader";
+import AppButton from "@/components/common/AppButton";
 import { useProjectRole } from "@/lib/useProjectRole";
 import StatusBadge from "@/components/common/StatusBadge";
 
@@ -126,26 +132,9 @@ export default function AnalysisDashboard() {
 
   useEffect(() => { loadData(); }, [id]);
 
-  if (loading) {
-    return <div className="text-center text-gray-400 py-12">분석 대시보드 로딩 중...</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-6 rounded text-center" role="alert">
-        <div className="mb-2">{error}</div>
-        <button onClick={loadData} className="text-xs text-red-600 hover:underline font-medium">다시 시도</button>
-      </div>
-    );
-  }
-
-  if (!roleLoading && !role) {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center text-sm text-yellow-800">
-        이 프로젝트에 접근할 권한이 없습니다. 프로젝트 소유자에게 멤버 초대를 요청하세요.
-      </div>
-    );
-  }
+  if (loading) return <LoadingState variant="detail" />;
+  if (error) return <ErrorState title={error} onRetry={loadData} />;
+  if (!roleLoading && !role) return <EmptyState title="접근 권한이 없습니다" description="프로젝트 소유자에게 멤버 초대를 요청하세요." />;
 
   // active/recent jobs
   const activeJobs = jobs.filter((j) => j.status === "PENDING" || j.status === "RUNNING");
@@ -154,85 +143,85 @@ export default function AnalysisDashboard() {
   const checklistPct = stats.totalChecklistItems > 0 ? Math.round((stats.doneChecklistItems / stats.totalChecklistItems) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── 상단: 핵심 지표 카드 ─────────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-5 gap-2.5">
         <Link href={`/projects/${id}/requirements`}>
           <StatCard label="요구사항" value={stats.totalReqs}
             sub={`승인 ${stats.approved} / 미검토 ${stats.notReviewed}`}
-            color="bg-blue-50 text-blue-700 hover:ring-2 hover:ring-blue-200" />
+            color="bg-indigo-50/60 text-indigo-700 hover:ring-2 hover:ring-indigo-200" />
         </Link>
         <StatCard label="검토 진행률" value={`${reviewPct}%`}
           sub={`${stats.approved}/${stats.totalReqs} 승인`}
-          color="bg-green-50 text-green-700"
-          bar={reviewPct} barColor="bg-green-500" />
+          color="bg-emerald-50/60 text-emerald-700"
+          bar={reviewPct} barColor="bg-emerald-400" />
         <Link href={`/projects/${id}/checklists`}>
           <StatCard label="체크리스트" value={`${checklistPct}%`}
             sub={`${stats.doneChecklistItems}/${stats.totalChecklistItems} 완료`}
-            color="bg-purple-50 text-purple-700 hover:ring-2 hover:ring-purple-200"
-            bar={checklistPct} barColor="bg-purple-500" />
+            color="bg-violet-50/60 text-violet-700 hover:ring-2 hover:ring-violet-200"
+            bar={checklistPct} barColor="bg-violet-400" />
         </Link>
         <Link href={`/projects/${id}/documents`}>
           <StatCard label="문서" value={stats.docs}
             sub={stats.docsFailed > 0 ? `실패 ${stats.docsFailed}` : stats.docsParsing > 0 ? `파싱 중 ${stats.docsParsing}` : "정상"}
-            color={stats.docsFailed > 0 ? "bg-red-50 text-red-700 hover:ring-2 hover:ring-red-200" : "bg-gray-50 text-gray-700 hover:ring-2 hover:ring-gray-200"} />
+            color={stats.docsFailed > 0 ? "bg-rose-50/60 text-rose-700 hover:ring-2 hover:ring-rose-200" : "bg-gray-50 text-gray-600 hover:ring-2 hover:ring-gray-200"} />
         </Link>
         <Link href={`/projects/${id}/inquiries`}>
           <StatCard label="질의" value={stats.inquiries}
-            sub={stats.queryNeeded > 0 ? `질의 필요 ${stats.queryNeeded}` : "질의 없음"}
-            color={stats.queryNeeded > 0 ? "bg-orange-50 text-orange-700 hover:ring-2 hover:ring-orange-200" : "bg-gray-50 text-gray-700 hover:ring-2 hover:ring-gray-200"} />
+            sub={stats.queryNeeded > 0 ? `질의 필요 ${stats.queryNeeded}` : "없음"}
+            color={stats.queryNeeded > 0 ? "bg-amber-50/60 text-amber-700 hover:ring-2 hover:ring-amber-200" : "bg-gray-50 text-gray-600 hover:ring-2 hover:ring-gray-200"} />
         </Link>
       </div>
 
-      {/* ── 시작 안내 (요구사항이 없을 때) ───────────────────────────── */}
+      {/* ── 시작 안내 ─────────────────────────────────────────────── */}
       {stats.totalReqs === 0 && stats.docs === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
           <div className="font-semibold mb-1">프로젝트 시작하기</div>
-          <div className="text-blue-600">
+          <div className="text-indigo-600">
             1. <Link href={`/projects/${id}/documents`} className="underline">문서 탭</Link>에서 RFP PDF를 업로드하세요.{" "}
             2. 업로드 후 분석을 시작하면 요구사항이 자동 추출됩니다.
           </div>
         </div>
       )}
       {stats.totalReqs === 0 && stats.docs > 0 && jobs.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+        <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 text-sm text-amber-800">
           <div className="font-semibold mb-1">분석 대기 중</div>
-          <div className="text-yellow-600">
+          <div className="text-amber-600">
             문서가 업로드되었습니다. <Link href={`/projects/${id}/documents`} className="underline">문서 탭</Link>에서 분석을 시작하세요.
           </div>
         </div>
       )}
 
-      {/* ── 경고 배너 (누락/위험 항목이 있을 때만) ───────────────────── */}
+      {/* ── 경고 배너 ───────────────────────────────────────────── */}
       {(stats.mandatoryNotDone > 0 || stats.highRiskItems > 0 || stats.queryNeeded > 0 || stats.needsUpdate > 0) && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="text-sm font-semibold text-red-700 mb-2">주의 필요 항목</div>
-          <div className="flex gap-4 flex-wrap text-sm">
+        <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-4">
+          <div className="text-xs font-semibold text-rose-600 mb-2">주의 필요 항목</div>
+          <div className="flex gap-4 flex-wrap text-[11px]">
             {stats.mandatoryNotDone > 0 && (
               <Link href={`/projects/${id}/checklists`}
-                className="flex items-center gap-1 text-red-700 hover:underline">
-                <span className="w-2 h-2 bg-red-500 rounded-full" />
-                필수 미완료 체크리스트 {stats.mandatoryNotDone}건
+                className="flex items-center gap-1.5 text-rose-600 hover:underline">
+                <span className="w-1.5 h-1.5 bg-rose-400 rounded-full" />
+                필수 미완료 {stats.mandatoryNotDone}건
               </Link>
             )}
             {stats.highRiskItems > 0 && (
               <Link href={`/projects/${id}/checklists`}
-                className="flex items-center gap-1 text-orange-700 hover:underline">
-                <span className="w-2 h-2 bg-orange-500 rounded-full" />
-                고위험 항목 {stats.highRiskItems}건
+                className="flex items-center gap-1.5 text-amber-600 hover:underline">
+                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
+                고위험 {stats.highRiskItems}건
               </Link>
             )}
             {stats.queryNeeded > 0 && (
               <Link href={`/projects/${id}/requirements?query_needed=true`}
-                className="flex items-center gap-1 text-yellow-700 hover:underline">
-                <span className="w-2 h-2 bg-yellow-500 rounded-full" />
+                className="flex items-center gap-1.5 text-amber-600 hover:underline">
+                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
                 질의 필요 {stats.queryNeeded}건
               </Link>
             )}
             {stats.needsUpdate > 0 && (
               <Link href={`/projects/${id}/requirements?review_status=NEEDS_UPDATE`}
-                className="flex items-center gap-1 text-red-600 hover:underline">
-                <span className="w-2 h-2 bg-red-400 rounded-full" />
+                className="flex items-center gap-1.5 text-rose-500 hover:underline">
+                <span className="w-1.5 h-1.5 bg-rose-300 rounded-full" />
                 수정 필요 {stats.needsUpdate}건
               </Link>
             )}
@@ -242,22 +231,22 @@ export default function AnalysisDashboard() {
 
       {/* ── AI 분석 품질 현황 ──────────────────────────────────────── */}
       {qualityStats && qualityStats.total_requirement_count > 0 && (
-        <div className="bg-white rounded border p-4">
+        <AppCard>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">AI 분석 품질</h3>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-gray-500">
-                검토필요 <b className="text-amber-700">{qualityStats.review_needed_count}</b>/{qualityStats.total_requirement_count}건
+            <h3 className="text-xs font-semibold text-gray-600">AI 분석 품질</h3>
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-gray-400">
+                검토필요 <b className="text-amber-600 tabular-nums">{qualityStats.review_needed_count}</b>/{qualityStats.total_requirement_count}
               </span>
               {qualityStats.by_severity?.CRITICAL > 0 && (
                 <Link href={`/projects/${id}/requirements?quality_severity=CRITICAL`}
-                  className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold hover:ring-2 hover:ring-red-300 transition-all">
+                  className="bg-rose-50 text-rose-600 border border-rose-100 px-1.5 py-0.5 rounded-md font-semibold hover:ring-1 hover:ring-rose-200 transition-all tabular-nums">
                   치명 {qualityStats.by_severity.CRITICAL}
                 </Link>
               )}
               {qualityStats.by_severity?.MINOR > 0 && (
                 <Link href={`/projects/${id}/requirements?quality_severity=MINOR`}
-                  className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold hover:ring-2 hover:ring-amber-300 transition-all">
+                  className="bg-amber-50 text-amber-600 border border-amber-100 px-1.5 py-0.5 rounded-md font-semibold hover:ring-1 hover:ring-amber-200 transition-all tabular-nums">
                   일반 {qualityStats.by_severity.MINOR}
                 </Link>
               )}
@@ -268,65 +257,60 @@ export default function AnalysisDashboard() {
               {qualityStats.by_code.slice(0, 5).map((item: any) => (
                 <Link key={item.code}
                   href={`/projects/${id}/requirements?quality_issue_code=${item.code}`}
-                  className="flex items-center gap-2 text-xs hover:bg-gray-50 rounded px-1 py-0.5 -mx-1 transition-colors">
-                  <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold ${
-                    item.severity === "CRITICAL" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                  className="flex items-center gap-2 text-[11px] hover:bg-gray-50/80 rounded-lg px-2 py-1.5 -mx-2 transition-colors">
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-semibold border ${
+                    item.severity === "CRITICAL" ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-amber-50 text-amber-600 border-amber-100"
                   }`}>
                     {item.severity === "CRITICAL" ? "치명" : "일반"}
                   </span>
-                  <span className="flex-1 text-gray-700">{item.message}</span>
-                  <span className="font-mono text-gray-400 text-[10px]">{item.code}</span>
-                  <span className="font-bold text-gray-600 min-w-[24px] text-right">{item.count}</span>
+                  <span className="flex-1 text-gray-600">{item.message}</span>
+                  <span className="font-mono text-gray-300 text-[10px]">{item.code}</span>
+                  <span className="font-semibold text-gray-500 min-w-[24px] text-right tabular-nums">{item.count}</span>
                 </Link>
               ))}
             </div>
           ) : (
             <div className="text-xs text-gray-400 py-4 text-center">품질 이슈가 없습니다.</div>
           )}
-        </div>
+        </AppCard>
       )}
 
       {/* ── 중단: 검토 상태 분포 + 분석 Job 상태 ────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {/* 사람 검토 상태 분포 */}
-        <div className="bg-white rounded border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">사람 검토 현황</h3>
-            <Link href={`/projects/${id}/requirements`} className="text-xs text-blue-600 hover:underline">
-              요구사항 전체 보기
-            </Link>
-          </div>
+        <AppCard>
+          <SectionHeader title="사람 검토 현황" action={
+            <Link href={`/projects/${id}/requirements`} className="text-[10px] text-gray-400 hover:text-indigo-600 transition-colors">전체 보기</Link>
+          } />
           <div className="space-y-2">
             <ReviewBar label="미검토" count={stats.notReviewed} total={stats.totalReqs}
-              color="bg-gray-400" href={`/projects/${id}/requirements?review_status=NOT_REVIEWED`} />
+              color="bg-gray-300" href={`/projects/${id}/requirements?review_status=NOT_REVIEWED`} />
             <ReviewBar label="검토중" count={stats.inReview} total={stats.totalReqs}
-              color="bg-yellow-400" href={`/projects/${id}/requirements?review_status=IN_REVIEW`} />
+              color="bg-amber-300" href={`/projects/${id}/requirements?review_status=IN_REVIEW`} />
             <ReviewBar label="승인" count={stats.approved} total={stats.totalReqs}
-              color="bg-green-500" href={`/projects/${id}/requirements?review_status=APPROVED`} />
+              color="bg-emerald-400" href={`/projects/${id}/requirements?review_status=APPROVED`} />
             <ReviewBar label="보류" count={stats.hold} total={stats.totalReqs}
-              color="bg-orange-400" href={`/projects/${id}/requirements?review_status=HOLD`} />
+              color="bg-amber-400" href={`/projects/${id}/requirements?review_status=HOLD`} />
             <ReviewBar label="수정필요" count={stats.needsUpdate} total={stats.totalReqs}
-              color="bg-red-500" href={`/projects/${id}/requirements?review_status=NEEDS_UPDATE`} />
+              color="bg-rose-400" href={`/projects/${id}/requirements?review_status=NEEDS_UPDATE`} />
           </div>
-        </div>
+        </AppCard>
 
         {/* AI 분석 Job 상태 */}
-        <div className="bg-white rounded border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">AI 분석 상태</h3>
-            {isOwner && (
-              <Link href={`/projects/${id}/documents`}
-                className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
-                분석 시작
+        <AppCard>
+          <SectionHeader title="AI 분석 상태" action={
+            isOwner ? (
+              <Link href={`/projects/${id}/documents`}>
+                <AppButton size="sm">분석 시작</AppButton>
               </Link>
-            )}
-          </div>
+            ) : undefined
+          } />
 
           {activeJobs.length > 0 && (
             <div className="mb-3">
               {activeJobs.map((j) => (
-                <div key={j.id} className="flex items-center gap-2 bg-blue-50 rounded px-3 py-2 mb-1 text-sm">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                <div key={j.id} className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-lg px-3 py-2 mb-1.5 text-[11px]">
+                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                   <span className="font-mono text-xs">{j.job_type}</span>
                   <StatusBadge value={j.status} />
                   {j.status === "RUNNING" && <span className="text-xs text-gray-400">분석 진행 중...</span>}
@@ -338,8 +322,8 @@ export default function AnalysisDashboard() {
           {failedJobs.length > 0 && (
             <div className="mb-3">
               {failedJobs.map((j) => (
-                <div key={j.id} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded px-3 py-2 mb-1 text-sm">
-                  <span className="text-red-500 text-xs font-bold">실패</span>
+                <div key={j.id} className="flex items-center gap-2 bg-rose-50/50 border border-rose-100 rounded-lg px-3 py-2 mb-1.5 text-[11px]">
+                  <span className="text-rose-500 text-[10px] font-semibold">실패</span>
                   <span className="font-mono text-xs">{j.job_type}</span>
                   <StatusBadge value="FAILED" />
                   {j.error_message && <span className="text-xs text-red-500 truncate flex-1">{j.error_message}</span>}
@@ -372,11 +356,11 @@ export default function AnalysisDashboard() {
               {isOwner && " 문서 탭에서 분석을 시작하세요."}
             </div>
           )}
-        </div>
+        </AppCard>
       </div>
 
       {/* ── 하단: 미리보기 탭 ──────────────────────────────────────────── */}
-      <div className="bg-white rounded border">
+      <AppCard padding="sm" className="overflow-hidden">
         <div className="flex border-b">
           {([
             { key: "review" as const, label: "검토 필요", count: stats.notReviewed + stats.needsUpdate },
@@ -463,7 +447,7 @@ export default function AnalysisDashboard() {
             </div>
           )}
         </div>
-      </div>
+      </AppCard>
     </div>
   );
 }
@@ -474,13 +458,13 @@ function StatCard({ label, value, sub, color, bar, barColor }: {
   bar?: number; barColor?: string;
 }) {
   return (
-    <div className={`rounded-lg border p-4 transition-all ${color}`}>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-sm font-medium mt-0.5">{label}</div>
-      <div className="text-xs opacity-70 mt-1">{sub}</div>
+    <div className={`rounded-xl border border-gray-100 shadow-sm p-3.5 transition-all ${color}`}>
+      <div className="text-xl font-bold tabular-nums">{value}</div>
+      <div className="text-[11px] font-semibold mt-0.5">{label}</div>
+      <div className="text-[10px] opacity-60 mt-1">{sub}</div>
       {bar !== undefined && (
-        <div className="w-full bg-white/50 rounded h-1.5 mt-2">
-          <div className={`h-1.5 rounded transition-all ${barColor}`}
+        <div className="w-full bg-white/40 rounded-full h-1 mt-2">
+          <div className={`h-1 rounded-full transition-all ${barColor}`}
             style={{ width: `${Math.min(bar, 100)}%` }} />
         </div>
       )}
@@ -488,19 +472,18 @@ function StatCard({ label, value, sub, color, bar, barColor }: {
   );
 }
 
-// ── Review Status Bar ────────────────────────────────────────────────
 function ReviewBar({ label, count, total, color, href }: {
   label: string; count: number; total: number; color: string; href: string;
 }) {
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
-    <Link href={href} className="flex items-center gap-2 group hover:bg-gray-50 rounded px-1 py-0.5 transition-colors">
-      <span className="text-xs text-gray-600 w-14">{label}</span>
-      <div className="flex-1 bg-gray-100 rounded h-2">
-        <div className={`h-2 rounded transition-all ${color}`} style={{ width: `${pct}%` }} />
+    <Link href={href} className="flex items-center gap-2 group hover:bg-gray-50/80 rounded-lg px-1.5 py-1 transition-colors">
+      <span className="text-[11px] text-gray-500 w-14">{label}</span>
+      <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+        <div className={`h-1.5 rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-500 w-16 text-right group-hover:text-blue-600">
-        {count}건 ({pct.toFixed(0)}%)
+      <span className="text-[11px] text-gray-400 w-16 text-right tabular-nums group-hover:text-indigo-600">
+        {count} ({pct.toFixed(0)}%)
       </span>
     </Link>
   );

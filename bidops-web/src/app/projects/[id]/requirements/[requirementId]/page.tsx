@@ -4,6 +4,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { requirementApi, documentApi, checklistApi, activityApi, memberApi, analysisJobApi, type ProjectMemberDto, type ApiError } from "@/lib/api";
+import LoadingState from "@/components/common/LoadingState";
+import EmptyState from "@/components/common/EmptyState";
 import { useProjectRole } from "@/lib/useProjectRole";
 import StatusBadge from "@/components/common/StatusBadge";
 import PdfViewer, { parseBboxJson, excerptTypeStyle } from "@/components/common/PdfViewer";
@@ -347,13 +349,8 @@ export default function RequirementDetailPage() {
     } finally { setSaving(false); }
   };
 
-  if (loading) {
-    return <div className="text-center text-gray-400 py-12">로딩 중...</div>;
-  }
-
-  if (!detail) {
-    return <div className="text-center text-gray-400 py-12">요구사항을 찾을 수 없습니다</div>;
-  }
+  if (loading) return <LoadingState variant="detail" />;
+  if (!detail) return <EmptyState title="요구사항을 찾을 수 없습니다" compact />;
 
   const req = detail.requirement;
   const sourceBlocks = sources?.source_text_blocks || [];

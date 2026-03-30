@@ -7,6 +7,8 @@ import { requirementApi, analysisJobApi, documentApi } from "@/lib/api";
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable, { type Column } from "@/components/common/DataTable";
 import FilterBar from "@/components/common/FilterBar";
+import LoadingState from "@/components/common/LoadingState";
+import EmptyState from "@/components/common/EmptyState";
 
 const REVIEW_FILTERS = [
   { label: "전체", value: "" }, { label: "미검토", value: "NOT_REVIEWED" },
@@ -398,36 +400,36 @@ export default function RequirementsPage() {
   const firstNotReviewed = allItems.find((r: any) => !r.review_status || r.review_status === "NOT_REVIEWED");
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* 커버리지 감사 요약 */}
       {coverage && coverage.expected_count > 0 && (
-        <div className="bg-white border rounded-lg p-4 mb-4 space-y-2">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700">추출 커버리지</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-2">
-              <div className={`h-2 rounded-full transition-all ${coverage.coverage_rate >= 90 ? "bg-green-500" : coverage.coverage_rate >= 70 ? "bg-yellow-500" : "bg-red-500"}`}
+            <span className="text-xs font-semibold text-gray-600">추출 커버리지</span>
+            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+              <div className={`h-1.5 rounded-full transition-all ${coverage.coverage_rate >= 90 ? "bg-emerald-500" : coverage.coverage_rate >= 70 ? "bg-amber-400" : "bg-rose-400"}`}
                 style={{ width: `${Math.min(coverage.coverage_rate, 100)}%` }} />
             </div>
-            <span className={`text-sm font-bold ${coverage.coverage_rate >= 90 ? "text-green-700" : coverage.coverage_rate >= 70 ? "text-yellow-700" : "text-red-700"}`}>
+            <span className={`text-xs font-bold tabular-nums ${coverage.coverage_rate >= 90 ? "text-emerald-600" : coverage.coverage_rate >= 70 ? "text-amber-600" : "text-rose-600"}`}>
               {coverage.coverage_rate}%
             </span>
           </div>
-          <div className="flex gap-4 text-xs">
-            <span className="text-gray-500">원문 <b className="text-gray-800">{coverage.expected_count}</b>건</span>
-            <span className="text-gray-500">추출 <b className="text-blue-700">{coverage.extracted_count}</b>건</span>
-            <span className="text-gray-500">저장 <b className="text-green-700">{coverage.saved_count}</b>건</span>
-            {coverage.merged_count > 0 && <span className="text-purple-600">병합 <b>{coverage.merged_count}</b>건</span>}
+          <div className="flex gap-4 text-[11px]">
+            <span className="text-gray-400">원문 <b className="text-gray-600">{coverage.expected_count}</b></span>
+            <span className="text-gray-400">추출 <b className="text-blue-600">{coverage.extracted_count}</b></span>
+            <span className="text-gray-400">저장 <b className="text-emerald-600">{coverage.saved_count}</b></span>
+            {coverage.merged_count > 0 && <span className="text-violet-500">병합 <b>{coverage.merged_count}</b></span>}
             {coverage.missing_count > 0 && (
-              <span className="text-red-600">누락 <b>{coverage.missing_count}</b>건
+              <span className="text-rose-500">누락 <b>{coverage.missing_count}</b>
                 {coverage.missing_req_nos && (
-                  <span className="text-red-400 ml-1 font-mono text-[10px]">
+                  <span className="text-rose-300 ml-1 font-mono text-[10px]">
                     ({JSON.parse(coverage.missing_req_nos).join(", ")})
                   </span>
                 )}
               </span>
             )}
             {coverage.missing_count === 0 && coverage.expected_count > 0 && (
-              <span className="text-green-600 font-medium">누락 없음</span>
+              <span className="text-emerald-500 font-medium">누락 없음</span>
             )}
           </div>
           {coverage.category_summary && (() => {
@@ -436,9 +438,9 @@ export default function RequirementsPage() {
               const entries = Object.entries(cats).filter(([,v]: any) => v.expected > 0);
               if (entries.length === 0) return null;
               return (
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-1.5 flex-wrap">
                   {entries.map(([k, v]: any) => (
-                    <span key={k} className={`text-[10px] px-2 py-0.5 rounded ${v.missing > 0 ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                    <span key={k} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${v.missing > 0 ? "bg-rose-50/60 text-rose-600 border-rose-100" : "bg-emerald-50/60 text-emerald-600 border-emerald-100"}`}>
                       {k} {v.matched}/{v.expected} {v.missing > 0 && `(-${v.missing})`}
                     </span>
                   ))}
@@ -451,43 +453,42 @@ export default function RequirementsPage() {
 
       {/* 검토 진행률 + 요약 카드 */}
       {total > 0 && (
-        <div className="bg-white border rounded-lg p-4 mb-4 space-y-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
           {/* 진행률 바 */}
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700 shrink-0">검토 진행률</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-2.5">
-              <div className="h-2.5 rounded-full transition-all duration-500 bg-gradient-to-r from-blue-500 to-green-500"
+            <span className="text-xs font-semibold text-gray-600 shrink-0">검토 진행률</span>
+            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+              <div className="h-1.5 rounded-full transition-all duration-500 bg-gradient-to-r from-indigo-400 to-emerald-400"
                 style={{ width: `${progressPct}%` }} />
             </div>
-            <span className="text-sm font-bold text-gray-700 shrink-0 min-w-[48px] text-right">{progressPct}%</span>
+            <span className="text-xs font-bold text-gray-600 shrink-0 min-w-[40px] text-right tabular-nums">{progressPct}%</span>
           </div>
 
           {/* 추출 커버리지 */}
           {(stat.merged > 0 || estimatedOriginalCount > total) && (
-            <div className="flex items-center gap-3 bg-purple-50 rounded-lg px-3 py-2 text-xs">
-              <span className="text-purple-700 font-medium">추출 커버리지</span>
-              <span className="text-purple-600">원문 약 {estimatedOriginalCount}건 → 추출 {total}건</span>
-              {stat.merged > 0 && <span className="bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-bold">병합 {stat.merged}건</span>}
-              <span className="text-purple-400">1:1 {stat.single}건</span>
+            <div className="flex items-center gap-3 bg-violet-50/50 border border-violet-100 rounded-lg px-3 py-2 text-[11px]">
+              <span className="text-violet-600 font-medium">커버리지</span>
+              <span className="text-violet-500">원문 {estimatedOriginalCount} → 추출 {total}</span>
+              {stat.merged > 0 && <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md font-semibold">병합 {stat.merged}</span>}
             </div>
           )}
 
           {/* 상태별 카드 */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-            <StatCard label="전체" count={total} color="bg-gray-50 text-gray-700" onClick={resetFilters} />
-            <StatCard label="미검토" count={stat.notReviewed} color="bg-slate-50 text-slate-700"
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+            <StatCard label="전체" count={total} color="bg-gray-50 text-gray-600" onClick={resetFilters} />
+            <StatCard label="미검토" count={stat.notReviewed} color="bg-slate-50 text-slate-600"
               active={reviewFilter === "NOT_REVIEWED"}
               onClick={() => { setReviewFilter("NOT_REVIEWED"); setPage(1); }} />
-            <StatCard label="승인" count={stat.approved} color="bg-green-50 text-green-700"
+            <StatCard label="승인" count={stat.approved} color="bg-emerald-50 text-emerald-600"
               active={reviewFilter === "APPROVED"}
               onClick={() => { setReviewFilter("APPROVED"); setPage(1); }} />
-            <StatCard label="수정필요" count={stat.needsUpdate} color="bg-red-50 text-red-700"
+            <StatCard label="수정필요" count={stat.needsUpdate} color="bg-rose-50 text-rose-600"
               active={reviewFilter === "NEEDS_UPDATE"}
               onClick={() => { setReviewFilter("NEEDS_UPDATE"); setPage(1); }} />
-            <StatCard label="필수" count={stat.mandatory} color="bg-rose-50 text-rose-700"
+            <StatCard label="필수" count={stat.mandatory} color="bg-rose-50/60 text-rose-600"
               active={mandatoryFilter === "true"}
               onClick={() => { setMandatoryFilter(mandatoryFilter === "true" ? "" : "true"); setPage(1); }} />
-            <StatCard label="질의필요" count={stat.queryNeeded} color="bg-orange-50 text-orange-700"
+            <StatCard label="질의필요" count={stat.queryNeeded} color="bg-amber-50 text-amber-600"
               active={queryNeededFilter === "true"}
               onClick={() => { setQueryNeededFilter(queryNeededFilter === "true" ? "" : "true"); setPage(1); }} />
           </div>
@@ -496,30 +497,30 @@ export default function RequirementsPage() {
           <div className="flex gap-2 flex-wrap">
             {stat.notReviewed > 0 && firstNotReviewed && (
               <button onClick={() => router.push(`/projects/${id}/requirements/${firstNotReviewed.id}?mode=review`)}
-                className="text-xs px-3 py-1.5 rounded font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm">
                 미검토 연속 검토 ({stat.notReviewed}건)
               </button>
             )}
             {stat.queryNeeded > 0 && (
               <button onClick={() => { setQueryNeededFilter("true"); setReviewFilter(""); setPage(1); }}
-                className="text-xs px-3 py-1.5 rounded font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors">
-                질의 필요 항목 보기
+                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100 transition-colors">
+                질의 필요 항목
               </button>
             )}
             {stat.needsUpdate > 0 && (
               <button onClick={() => { setReviewFilter("NEEDS_UPDATE"); setPage(1); }}
-                className="text-xs px-3 py-1.5 rounded font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
-                수정 필요 항목 보기
+                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors">
+                수정 필요 항목
               </button>
             )}
             {stat.queryNeeded > 0 && (
               <Link href={`/projects/${id}/inquiries`}
-                className="text-xs px-3 py-1.5 rounded font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors">
-                질의리스트 관리
+                className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-violet-50 text-violet-600 border border-violet-100 hover:bg-violet-100 transition-colors">
+                질의리스트
               </Link>
             )}
             {progressPct === 100 && (
-              <span className="text-xs px-3 py-1.5 rounded font-medium bg-green-100 text-green-700">
+              <span className="text-[11px] px-3 py-1.5 rounded-lg font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
                 검토 완료
               </span>
             )}
@@ -645,12 +646,12 @@ export default function RequirementsPage() {
 
       {/* 일괄 재분석 진행 배너 */}
       {batchStatus && batchJobIds.length > 0 && (
-        <div className={`flex items-center gap-3 px-3 py-2 rounded border text-xs mb-2 ${
+        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-[11px] ${
           batchStatus.done
             ? batchStatus.failed_count > 0
-              ? "bg-amber-50 border-amber-200"
-              : "bg-green-50 border-green-200"
-            : "bg-blue-50 border-blue-200"
+              ? "bg-amber-50/60 border-amber-100"
+              : "bg-emerald-50/60 border-emerald-100"
+            : "bg-blue-50/60 border-blue-100"
         }`}>
           <span className="font-medium text-gray-700">
             {batchStatus.done ? "일괄 재분석 완료" : "일괄 재분석 진행 중"}
@@ -806,8 +807,8 @@ function GroupedRequirementList({ items, loading, onRowClick, selectedIds, onTog
 }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  if (loading) return <div className="bg-white rounded-lg border p-8 text-center text-gray-400 text-sm">로딩 중...</div>;
-  if (items.length === 0) return <div className="bg-white rounded-lg border p-8 text-center text-gray-400 text-sm">요구사항이 없습니다</div>;
+  if (loading) return <LoadingState variant="list" rows={5} />;
+  if (items.length === 0) return <EmptyState title="아직 분석된 요구사항이 없습니다" description="문서 분석이 완료되면 요구사항이 표시됩니다." compact />;
 
   // 원문번호 정렬 순서
   const PREFIX_ORDER = ["MAR", "DAR", "MHR", "SER", "QUR", "COR", "PMR", "PSR"];
@@ -843,7 +844,7 @@ function GroupedRequirementList({ items, loading, onRowClick, selectedIds, onTog
   };
 
   return (
-    <div className="bg-white rounded-lg border divide-y">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
       {sortedGroupEntries.map(([groupKey, groupItems]) => {
         const isExpanded = expandedGroups.has(groupKey) || groupItems.length === 1;
         const first = groupItems[0];
@@ -852,7 +853,7 @@ function GroupedRequirementList({ items, loading, onRowClick, selectedIds, onTog
         return (
           <div key={groupKey}>
             {/* 그룹 헤더 */}
-            <div className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors ${groupItems.length > 1 ? '' : ''}`}
+            <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-indigo-50/30 transition-colors"
               onClick={() => groupItems.length > 1 ? toggleGroup(groupKey) : onRowClick(first)}>
               {groupItems.length > 1 && (
                 <button className="text-xs text-gray-400 w-4 shrink-0" onClick={(e) => { e.stopPropagation(); toggleGroup(groupKey); }}>
@@ -889,7 +890,7 @@ function GroupedRequirementList({ items, loading, onRowClick, selectedIds, onTog
             {isExpanded && groupItems.length > 1 && (
               <div className="bg-gray-50/50">
                 {groupItems.map((r: any, i: number) => (
-                  <div key={r.id} className="flex items-center gap-3 px-4 py-2 pl-12 border-t border-gray-100 cursor-pointer hover:bg-blue-50/50 transition-colors"
+                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 pl-12 border-t border-gray-50 cursor-pointer hover:bg-indigo-50/20 transition-colors"
                     onClick={() => onRowClick(r)}>
                     {onToggleSelect && (
                       <input type="checkbox" checked={selectedIds?.has(r.id) || false}
@@ -989,11 +990,11 @@ function StatCard({ label, count, color, active, onClick }: {
 }) {
   return (
     <button onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-center transition-all ${color} ${
-        active ? "ring-2 ring-blue-400 shadow-sm" : "hover:shadow-sm"
+      className={`rounded-xl px-3 py-2 text-center transition-all border ${color} ${
+        active ? "ring-2 ring-indigo-300 border-indigo-200 shadow-sm" : "border-transparent hover:shadow-sm hover:border-gray-100"
       }`}>
-      <div className="text-lg font-bold">{count}</div>
-      <div className="text-[11px]">{label}</div>
+      <div className="text-base font-bold tabular-nums">{count}</div>
+      <div className="text-[10px] text-gray-400">{label}</div>
     </button>
   );
 }
