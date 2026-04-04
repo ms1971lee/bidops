@@ -43,10 +43,13 @@ jobs:
         working-directory: bidops-api
         run: ./gradlew clean test --stacktrace 2>&1 | tee /tmp/gradle-output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Show Gradle failure output (last 200 lines)
-        working-directory: bidops-api
+      - name: Show Gradle failure output
         if: failure()
-        run: tail -200 /tmp/gradle-output.txt || true
+        run: |
+          echo '## Gradle Failure Output (last 100 lines)' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -100 /tmp/gradle-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No output captured" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Test Summary
         working-directory: bidops-api
