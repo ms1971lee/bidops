@@ -1,9 +1,6 @@
 spring:
-  profiles:
-    active: postgres
-
-  # Testcontainers가 동적으로 JDBC URL을 주입하므로 여기서는 빈 값
-  # @DynamicPropertySource에서 덮어씀
+  # @ActiveProfiles("postgres")에서 프로파일 활성화
+  # @DynamicPropertySource에서 JDBC URL 주입
   datasource:
     driver-class-name: org.postgresql.Driver
 

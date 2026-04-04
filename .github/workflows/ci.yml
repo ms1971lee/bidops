@@ -42,7 +42,7 @@ jobs:
 
       - name: Run all tests (H2 + PostgreSQL Testcontainers)
         working-directory: bidops-api
-        run: ./gradlew clean test --info
+        run: ./gradlew clean test
 
       - name: Verify PostgresContractTest was not skipped
         working-directory: bidops-api
