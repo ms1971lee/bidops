@@ -303,3 +303,29 @@
 ### 10.4 PostgreSQL Testcontainers (전차 보강에서 추가)
 - Docker 없는 환경에서 `@EnabledIf("isDockerAvailable")`로 자동 skip
 - CI(ubuntu-latest)에서는 Docker 기본 제공 → 항상 실행
+
+---
+
+## 11. MVP 마감 QA 라운드 (2026-04-04)
+
+### 11.1 Security 보강
+- 401 응답에 `WWW-Authenticate: Bearer` 헤더 추가 (RFC 7235 준수)
+- 통합 테스트에서 헤더 + JSON 에러 본문 검증
+
+### 11.2 프론트-백엔드 필드 정합성 최종 점검
+
+| 화면 | 상태 | 이슈 |
+|------|------|------|
+| `/projects` | ⚠️ 부분 | `bid_type`, `due_date`, 집계값 4종 미제공 — UI가 null-safe 처리로 동작은 함 |
+| `/projects/new` | ✅ 정상 | 생성 필드 전송, 미지원 필드는 서버에서 무시 |
+| `/projects/[id]` | ⚠️ 부분 | 프로젝트 `bid_type` 누락, 문서 `original_name` 누락 — fallback 동작 |
+| `/projects/[id]/documents` | ✅ 정상 | 모든 필드 정합 |
+| `/projects/[id]/requirements` | ✅ 정상 | 모든 필드 정합, 필터 파라미터 정합 |
+| `/projects/[id]/requirements/[id]` | ✅ 정상 | detail/analysis/review/sources 분리 구조 정합 |
+| `/projects/[id]/checklists` | ✅ 정상 | 모든 필드 정합 |
+
+**핵심 결론**: 7개 화면 중 5개는 완전 정합. 2개(프로젝트 목록/대시보드)는 `bid_type`, `due_date`, 집계값이 백엔드에 없으나, 프론트가 null-safe 처리하여 **런타임 에러 없이 동작**. 핵심 업무 화면(요구사항, 체크리스트, 문서)은 100% 정합.
+
+### 11.3 CI GitHub Actions
+- 첫 실행 실패 → `--info` 플래그 제거, postgres 프로파일 설정 수정 후 재push
+- Verify 스텝: PostgresContractTest skip 여부 자동 검증

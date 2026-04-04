@@ -285,16 +285,21 @@ Requirement와 SourceExcerpt 연결 엔티티.
 - id (PK)
 - checklistId (FK)
 - sourceExcerptId (FK, nullable)
-- linkedRequirementId (FK, nullable)
-- itemCode
+- linkedRequirementId (FK, nullable) — 자동 생성 시 요구사항과 연결
+- itemCode (예: CHK-001)
 - itemText
 - mandatoryFlag
 - dueHint
 - currentStatus (TODO / IN_PROGRESS / DONE / BLOCKED)
 - riskLevel (NONE / LOW / MEDIUM / HIGH)
 - riskNote
+- ownerUserId (FK, nullable) — 담당자
+- actionComment — 조치 메모
 - createdAt
 - updatedAt
+
+참고: `POST /checklists/generate` 호출 시 요구사항 기반으로 자동 생성됨.
+위험도는 mandatory+evidenceRequired→HIGH, mandatory|queryNeeded→MEDIUM, 나머지→LOW.
 
 ## 4.16 ChecklistReview
 체크리스트 검토/조치 이력.

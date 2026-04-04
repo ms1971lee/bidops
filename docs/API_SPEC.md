@@ -64,9 +64,19 @@
 ## 5. 인증/권한
 ### 5.1 인증
 - 이메일/비밀번호 또는 사내 인증 확장 가능
-- MVP 기준: JWT 기반 세션
+- MVP 기준: JWT 기반 세션 (Bearer 토큰)
+- 공개 엔드포인트: `POST /auth/login`, `POST /auth/signup`
 
-### 5.2 권한 레벨(초안)
+### 5.2 인증/인가 응답 코드 정책
+
+| 상황 | HTTP 상태 | 헤더 | 응답 본문 |
+|------|----------|------|----------|
+| 토큰 없음 | **401 Unauthorized** | `WWW-Authenticate: Bearer` | `{"success":false,"error":"인증이 필요합니다."}` |
+| 토큰 만료/변조 | **401 Unauthorized** | `WWW-Authenticate: Bearer` | `{"success":false,"error":"인증이 필요합니다."}` |
+| 인증 OK, 권한 부족 | **403 Forbidden** | — | `{"success":false,"error":"접근 권한이 없습니다."}` |
+| 다른 조직 프로젝트 접근 | **403 또는 404** | — | 서비스 계층에서 차단 |
+
+### 5.3 권한 레벨
 - OWNER
 - ADMIN
 - EDITOR
