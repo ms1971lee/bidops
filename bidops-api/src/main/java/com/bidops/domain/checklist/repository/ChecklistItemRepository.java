@@ -37,4 +37,6 @@ public interface ChecklistItemRepository extends JpaRepository<ChecklistItem, St
     long countByChecklistId(String checklistId);
 
     long countByChecklistIdAndCurrentStatus(String checklistId, ChecklistItemStatus status);
+
+    boolean existsByChecklistIdAndLinkedRequirementId(String checklistId, String linkedRequirementId);
 }

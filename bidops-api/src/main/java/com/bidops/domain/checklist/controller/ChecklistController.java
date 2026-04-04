@@ -4,6 +4,7 @@ import com.bidops.common.response.ApiResponse;
 import com.bidops.domain.checklist.dto.*;
 import com.bidops.domain.checklist.enums.ChecklistItemStatus;
 import com.bidops.domain.checklist.enums.RiskLevel;
+import com.bidops.domain.checklist.service.ChecklistGenerateService;
 import com.bidops.domain.checklist.service.ChecklistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,6 +22,16 @@ import java.util.List;
 public class ChecklistController {
 
     private final ChecklistService checklistService;
+    private final ChecklistGenerateService checklistGenerateService;
+
+    // ── 자동 생성 ─────────────────────────────────────────────────────
+
+    @PostMapping("/generate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "요구사항 기반 체크리스트 항목 자동 생성", operationId = "generateChecklistItems")
+    public ApiResponse<ChecklistGenerateResponse> generate(@PathVariable String projectId) {
+        return ApiResponse.ok(checklistGenerateService.generate(projectId));
+    }
 
     // ── 체크리스트 묶음 ─────────────────────────────────────────────────
 

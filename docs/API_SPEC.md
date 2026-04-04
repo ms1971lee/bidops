@@ -577,6 +577,26 @@ Query (모두 optional, AND 조합):
 ### 12.4 체크리스트 자동 생성
 `POST /projects/{projectId}/checklists/generate`
 
+**동작 정책:**
+- 프로젝트의 모든 요구사항(archived=false)을 기준으로 SUBMISSION 체크리스트에 항목 자동 생성
+- 기존 SUBMISSION 체크리스트가 있으면 재사용, 없으면 새로 생성
+- 이미 linkedRequirementId로 연결된 항목이 있으면 skip (idempotent)
+- mandatory + evidenceRequired → HIGH 위험도, mandatory 또는 queryNeeded → MEDIUM, 나머지 → LOW
+- 권한: CHECKLIST_EDIT 이상
+
+**Response 201:**
+```json
+{
+  "success": true,
+  "data": {
+    "checklist_id": "uuid",
+    "created_count": 3,
+    "skipped_count": 0,
+    "created_item_ids": ["uuid1", "uuid2", "uuid3"]
+  }
+}
+```
+
 ---
 
 ## 13. 질의(Query) API

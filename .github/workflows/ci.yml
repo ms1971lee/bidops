@@ -1,0 +1,83 @@
+name: CI - BidOps API
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'bidops-api/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'bidops-api/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  test:
+    name: Test (H2 + PostgreSQL Testcontainers)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('bidops-api/**/*.gradle*', 'bidops-api/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        working-directory: bidops-api
+        run: chmod +x ./gradlew
+
+      - name: Run all tests (H2 + PostgreSQL Testcontainers)
+        working-directory: bidops-api
+        run: ./gradlew clean test --info
+
+      - name: Verify PostgresContractTest was not skipped
+        working-directory: bidops-api
+        run: |
+          # PostgresContractTest XML이 존재하고 tests > 0인지 확인
+          XML_FILE="build/test-results/test/TEST-com.bidops.integration.PostgresContractTest.xml"
+          if [ ! -f "$XML_FILE" ]; then
+            echo "ERROR: PostgresContractTest result not found!"
+            exit 1
+          fi
+          TESTS=$(grep -oE 'tests="[0-9]+"' "$XML_FILE" | head -1 | grep -oE '[0-9]+')
+          SKIPPED=$(grep -oE 'skipped="[0-9]+"' "$XML_FILE" | head -1 | grep -oE '[0-9]+')
+          echo "PostgresContractTest: tests=$TESTS, skipped=$SKIPPED"
+          if [ "$TESTS" = "0" ] || [ "$TESTS" = "$SKIPPED" ]; then
+            echo "ERROR: PostgresContractTest was skipped or had 0 tests!"
+            exit 1
+          fi
+          echo "PostgresContractTest ran successfully."
+
+      - name: Test Summary
+        working-directory: bidops-api
+        if: always()
+        run: |
+          echo "=== Test Results ==="
+          for f in build/test-results/test/TEST-*.xml; do
+            name=$(basename "$f" .xml | sed 's/TEST-com.bidops.//')
+            tests=$(grep -oE 'tests="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            failures=$(grep -oE 'failures="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            echo "  $name: $tests tests, $failures failures"
+          done
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: bidops-api/build/reports/tests/test/
+          retention-days: 7
