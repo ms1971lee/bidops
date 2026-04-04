@@ -42,7 +42,32 @@ jobs:
 
       - name: Run all tests (H2 + PostgreSQL Testcontainers)
         working-directory: bidops-api
-        run: ./gradlew clean test
+        run: ./gradlew clean test || true
+
+      - name: Check test results
+        working-directory: bidops-api
+        run: |
+          echo "=== Failed Tests ==="
+          for f in build/test-results/test/TEST-*.xml; do
+            failures=$(grep -oE 'failures="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            errors=$(grep -oE 'errors="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            if [ "$failures" != "0" ] || [ "$errors" != "0" ]; then
+              echo "--- $(basename $f) ---"
+              grep -A5 '<failure' "$f" || true
+              grep -A5 '<error' "$f" || true
+            fi
+          done
+          echo "=== Checking for overall failures ==="
+          TOTAL_FAILURES=0
+          for f in build/test-results/test/TEST-*.xml; do
+            failures=$(grep -oE 'failures="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            errors=$(grep -oE 'errors="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
+            TOTAL_FAILURES=$((TOTAL_FAILURES + failures + errors))
+          done
+          echo "Total failures+errors: $TOTAL_FAILURES"
+          if [ "$TOTAL_FAILURES" -gt 0 ]; then
+            exit 1
+          fi
 
       - name: Verify PostgresContractTest was not skipped
         working-directory: bidops-api
