@@ -51,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("postgres")
+@ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @EnabledIf(value = "isDockerAvailable", disabledReason = "Docker가 실행 중이지 않아 Testcontainers를 사용할 수 없습니다")
 class PostgresContractTest {
@@ -71,12 +71,17 @@ class PostgresContractTest {
             .withUsername("test")
             .withPassword("test");
 
+    /**
+     * test 프로파일의 H2 설정을 PostgreSQL로 완전히 덮어쓴다.
+     * @ActiveProfiles("test")를 유지해 다른 테스트와 설정 충돌을 방지한다.
+     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
         registry.add("spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.PostgreSQLDialect");
     }
 
