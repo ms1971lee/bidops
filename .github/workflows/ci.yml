@@ -41,7 +41,12 @@ jobs:
 
       - name: Run all tests
         working-directory: bidops-api
-        run: ./gradlew clean test
+        run: ./gradlew clean test --stacktrace 2>&1 | tee /tmp/gradle-output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Show Gradle failure output (last 200 lines)
+        working-directory: bidops-api
+        if: failure()
+        run: tail -200 /tmp/gradle-output.txt || true
 
       - name: Test Summary
         working-directory: bidops-api
