@@ -18,6 +18,7 @@ import com.bidops.domain.requirement.repository.RequirementInsightRepository;
 import com.bidops.domain.requirement.repository.RequirementRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -81,6 +82,7 @@ class PostgresContractTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
+    @Autowired EntityManager em;
     @Autowired RequirementRepository requirementRepo;
     @Autowired RequirementInsightRepository insightRepo;
     @Autowired SubmissionChecklistRepository checklistRepo;
@@ -235,8 +237,11 @@ class PostgresContractTest {
     }
 
     // ━━━ 4. 제약조건 검증 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PostgreSQL에서 제약조건 위반 시 트랜잭션이 abort 상태가 되어
+    // 이후 쿼리가 불가하므로, 제약조건 테스트는 가장 마지막에 배치하고
+    // EntityManager.clear()로 영속성 컨텍스트를 초기화한다.
 
-    @Test @Order(30) @DisplayName("[PG] RequirementInsight UNIQUE 제약: 동일 requirementId 중복 → 예외")
+    @Test @Order(90) @DisplayName("[PG] RequirementInsight UNIQUE 제약: 동일 requirementId 중복 → 예외")
     void uniqueConstraintInsight() {
         String reqId = TestHelper.insertRequirement(requirementRepo,
                 projectId, documentId, "PG-REQ-UNIQ", "UNIQUE 테스트",
@@ -244,15 +249,19 @@ class PostgresContractTest {
                 RequirementCategory.SECURITY, true, false, false, FactLevel.FACT);
 
         TestHelper.insertInsight(insightRepo, reqId, "첫 번째 인사이트", "해석1", false, FactLevel.FACT);
+        em.flush();
+        em.clear();
 
         // 동일 requirementId로 두 번째 insight 삽입 시도 → 예외
         Assertions.assertThrows(Exception.class, () -> {
             TestHelper.insertInsight(insightRepo, reqId, "두 번째 인사이트", "해석2", false, FactLevel.FACT);
             insightRepo.flush();
         });
+        // PostgreSQL: abort된 트랜잭션 정리
+        em.clear();
     }
 
-    @Test @Order(31) @DisplayName("[PG] NOT NULL 제약: Requirement.originalText 누락 → 예외")
+    @Test @Order(91) @DisplayName("[PG] NOT NULL 제약: Requirement.originalText 누락 → 예외")
     void notNullConstraint() {
         Assertions.assertThrows(Exception.class, () -> {
             Requirement req = Requirement.builder()
@@ -269,6 +278,7 @@ class PostgresContractTest {
                     .build();
             requirementRepo.saveAndFlush(req);
         });
+        em.clear();
     }
 
     // ━━━ 5. 전체 API가 PostgreSQL에서도 동작하는지 확인 ━━━━━━━━━━━━━━
