@@ -46,25 +46,28 @@ jobs:
 
       - name: Check test results
         working-directory: bidops-api
+        if: always()
         run: |
-          echo "=== Failed Tests ==="
-          for f in build/test-results/test/TEST-*.xml; do
-            failures=$(grep -oE 'failures="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
-            errors=$(grep -oE 'errors="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
-            if [ "$failures" != "0" ] || [ "$errors" != "0" ]; then
-              echo "--- $(basename $f) ---"
-              grep -A5 '<failure' "$f" || true
-              grep -A5 '<error' "$f" || true
-            fi
-          done
-          echo "=== Checking for overall failures ==="
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           TOTAL_FAILURES=0
           for f in build/test-results/test/TEST-*.xml; do
+            name=$(basename "$f" .xml | sed 's/TEST-com.bidops.//')
+            tests=$(grep -oE 'tests="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
             failures=$(grep -oE 'failures="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
             errors=$(grep -oE 'errors="[0-9]+"' "$f" | head -1 | grep -oE '[0-9]+')
             TOTAL_FAILURES=$((TOTAL_FAILURES + failures + errors))
+            if [ "$failures" != "0" ] || [ "$errors" != "0" ]; then
+              echo "### ❌ $name ($failures failures, $errors errors)" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              grep -A20 '<failure' "$f" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+              grep -A20 '<error' "$f" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ✅ $name: $tests tests" >> $GITHUB_STEP_SUMMARY
+            fi
           done
-          echo "Total failures+errors: $TOTAL_FAILURES"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total failures+errors: $TOTAL_FAILURES**" >> $GITHUB_STEP_SUMMARY
           if [ "$TOTAL_FAILURES" -gt 0 ]; then
             exit 1
           fi
